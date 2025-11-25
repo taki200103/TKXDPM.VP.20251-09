@@ -13,6 +13,7 @@ public class DeliveryInfo {
     private String phoneNumber;
     private String instructions;
 
+    // constructor đầy đủ 
     public DeliveryInfo(String deliveryAddress, String city, String recipientName, String email, String phoneNumber, String instructions) {
         this.deliveryAddress = deliveryAddress;
         this.city = city;
@@ -22,6 +23,7 @@ public class DeliveryInfo {
         this.instructions = instructions;
     }
 
+    // constructor không tham số dùng khi muốn set từng gtri
     public DeliveryInfo() {
 
     }
