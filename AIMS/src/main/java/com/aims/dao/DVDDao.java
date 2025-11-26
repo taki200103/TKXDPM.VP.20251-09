@@ -34,7 +34,7 @@ public class DVDDao implements Dao<DVD>{
                         .setReleaseDate(res.getString("release_date"))
                         .setSubtitle(res.getString("subtitle"))
                         .setStudio(res.getString("studio"))
-                        .setRuntime(res.getInt("runtime"))
+                        .setRuntime(parseRuntime(res.getString("runtime")))
                         .setDirector(res.getString("director"))
                         .setDiscType(res.getString("disc_type"));
                 dvds.add(dvd);
@@ -70,7 +70,7 @@ public class DVDDao implements Dao<DVD>{
                     // Lấy dữ liệu từ bảng DVD
                     String discType = res.getString("disc_type");
                     String director = res.getString("director");
-                    int runtime = res.getInt("runtime");
+                    int runtime = parseRuntime(res.getString("runtime"));
                     String studio = res.getString("studio");
                     String subtitles = res.getString("subtitle");
                     String releaseDate = res.getString("release_date");
@@ -104,5 +104,24 @@ public class DVDDao implements Dao<DVD>{
     @Override
     public void delete(DVD dvd) {
 
+    }
+
+    /**
+     * Chuyển giá trị runtime từ chuỗi sang số nguyên, chấp nhận cả chuỗi có chữ như "120 phút".
+     * Nếu không parse được thì ném {@link RuntimeException} với thông báo rõ ràng.
+     */
+    private int parseRuntime(String runtimeRaw) {
+        if (runtimeRaw == null) {
+            throw new RuntimeException("Runtime value is null");
+        }
+        String digitsOnly = runtimeRaw.replaceAll("\\D+", "");
+        if (digitsOnly.isEmpty()) {
+            throw new RuntimeException("Cannot parse runtime from value: " + runtimeRaw);
+        }
+        try {
+            return Integer.parseInt(digitsOnly);
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Bad value for runtime: " + runtimeRaw, e);
+        }
     }
 }
