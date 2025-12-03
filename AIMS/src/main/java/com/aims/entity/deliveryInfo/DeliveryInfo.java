@@ -12,6 +12,7 @@ public class DeliveryInfo {
     private String email;
     private String phoneNumber;
     private String instructions;
+    private boolean rushOrder;
 
     // constructor đầy đủ 
     public DeliveryInfo(String deliveryAddress, String city, String recipientName, String email, String phoneNumber, String instructions) {
@@ -94,6 +95,14 @@ public class DeliveryInfo {
 
     public void setInstructions(String instructions) {
         this.instructions = instructions;
+    }
+
+    public boolean isRushOrder() {
+        return rushOrder;
+    }
+
+    public void setRushOrder(boolean rushOrder) {
+        this.rushOrder = rushOrder;
     }
     private boolean validatePhoneNumber(String phoneNumber) {
         if (phoneNumber == null) {

@@ -4,9 +4,11 @@ import com.aims.controller.PlaceOrderController;
 import com.aims.controller.ViewCartController;
 import com.aims.entity.cart.Cart;
 import com.aims.entity.cart.CartMedia;
+import com.aims.entity.order.Order;
 import com.aims.utils.Configs;
 import com.aims.utils.Utils;
 import com.aims.views.popup.PopupForm;
+import com.aims.views.shipping.DeliveryForm;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
@@ -157,8 +159,7 @@ public class CartForm {
     }
 
     /**
-     * Xử lý đặt hàng đơn giản: kiểm tra giỏ hàng trống và kiểm tra tồn kho.
-     * Logic giao hàng/hoá đơn chi tiết có thể bổ sung sau.
+     * Xử lý đặt hàng: kiểm tra giỏ hàng trống, kiểm tra tồn kho rồi mở form nhập thông tin giao hàng.
      */
     private void handlePlaceOrder() throws SQLException {
         if (Cart.getCart().getListMedia().isEmpty()) {
@@ -167,12 +168,13 @@ public class CartForm {
         }
 
         try {
-            // kiểm tra exist stock
+            // kiểm tra tồn kho
             placeOrderController.placeOrder();
             // tạo Order trong bộ nhớ
-            placeOrderController.createOrder();
-            PopupForm.success("Order placed successfully (demo).");
-            refreshCart();
+            Order order = placeOrderController.createOrder();
+            // mở form nhập thông tin giao hàng
+            DeliveryForm deliveryForm = new DeliveryForm(stage, order);
+            deliveryForm.show();
         } catch (com.aims.exception.MediaNotAvailableException e) {
             PopupForm.error("Some media are not available, please check your cart.");
             refreshCart();
