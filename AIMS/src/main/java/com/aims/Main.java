@@ -1,28 +1,31 @@
 package com.aims;
 
-import com.aims.views.home.HomeForm;
 import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.stage.Stage;
+
+import java.io.IOException;
 
 public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) {
         try {
-            // Tạo HomeForm
-            HomeForm homeForm = new HomeForm();
-            
-            // Set stage cho homeForm
-            homeForm.getStage().setTitle("AIMS - Home");
-            homeForm.getStage().setWidth(1200);
-            homeForm.getStage().setHeight(800);
-            homeForm.getStage().setMinWidth(800);
-            homeForm.getStage().setMinHeight(600);
-            
-            // Hiển thị cửa sổ
-            homeForm.show();
-            
-        } catch (Exception e) {
+            FXMLLoader loader = new FXMLLoader(
+                    Main.class.getResource("/com/aims/views/home/Home.fxml")
+            );
+            Parent root = loader.load();
+
+            Scene scene = new Scene(root, 1200, 800);
+            primaryStage.setTitle("AIMS - Home");
+            primaryStage.setScene(scene);
+            primaryStage.setMinWidth(800);
+            primaryStage.setMinHeight(600);
+            primaryStage.show();
+
+        } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Error starting application: " + e.getMessage());
         }

@@ -114,6 +114,10 @@ public class CD extends Media {
         return this;
     }
 
+    public String getMusicType() {
+        return this.musicType;
+    }
+
     public String getReleasedDate() {
         return this.releasedDate;
     }

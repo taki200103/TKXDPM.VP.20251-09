@@ -101,6 +101,10 @@ public class DVD extends Media {
         return this;
     }
 
+    public String getDiscType() {
+        return this.discType;
+    }
+
     public String getDirector() {
         return this.director;
     }
