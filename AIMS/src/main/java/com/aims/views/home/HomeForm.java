@@ -3,6 +3,7 @@ package com.aims.views.home;
 import com.aims.controller.HomeController;
 import com.aims.entity.cart.Cart;
 import com.aims.entity.media.Media;
+import com.aims.views.cart.CartForm;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
@@ -88,11 +89,10 @@ public class HomeForm {
         if (cartButton != null) {
             updateCartButtonLabel();
             cartButton.setOnAction(e -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Cart");
-                alert.setHeaderText("Cart contains " + Cart.getCart().getCartSize() + " items");
-                alert.setContentText("Subtotal: " + formatPrice(Cart.getCart().calSubtotal()));
-                alert.showAndWait();
+                // Mở màn hình Cart
+                javafx.stage.Stage owner = (javafx.stage.Stage) rootPane.getScene().getWindow();
+                CartForm cartForm = new CartForm(owner);
+                cartForm.show();
             });
         }
 
