@@ -14,48 +14,52 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
-import java.io.File;
 import java.io.IOException;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 public class PaymentForm extends BaseForm {
 
-    public PaymentForm() throws IOException {
+    // Thêm biến để lưu số tiền
+    private int amount;
+    private String transactionContent;
+
+    // Định dạng tiền tệ (Ví dụ: 150.000 VND)
+    private NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.of("vi", "VN"));
+
+    // SỬA CONSTRUCTOR: Nhận thêm tham số amount và content
+    public PaymentForm(int amount, String content) throws IOException {
         super();
+        this.amount = amount;
+        this.transactionContent = content;
         initializeUI();
     }
 
     private void initializeUI() {
-        // Container chính
         VBox mainContainer = new VBox(20);
         mainContainer.setPadding(new Insets(30));
         mainContainer.setAlignment(Pos.TOP_CENTER);
         mainContainer.setStyle("-fx-background-color: white;");
 
-        // Tiêu đề
         Label titleLabel = new Label("Thanh toán đơn hàng");
         titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 24));
         titleLabel.setTextFill(Color.web("#2c3e50"));
 
-        // TabPane để chuyển đổi giữa VietQR và PayPal
         TabPane paymentMethods = new TabPane();
         paymentMethods.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         paymentMethods.setStyle("-fx-border-color: #bdc3c7; -fx-border-width: 1px;");
 
-        // --- TAB 1: VIETQR (Dùng Subsystem thật) ---
         Tab qrTab = new Tab("Thanh toán qua VietQR");
         qrTab.setContent(createVietQRContent());
 
-        // --- TAB 2: PAYPAL (Giả lập giao diện) ---
         Tab creditTab = new Tab("Thẻ tín dụng (PayPal)");
         creditTab.setContent(createPayPalContent());
 
         paymentMethods.getTabs().addAll(qrTab, creditTab);
 
-        // Nút Hủy bỏ
         Button cancelButton = new Button("Quay lại");
         cancelButton.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-size: 14px;");
         cancelButton.setOnAction(e -> {
-            // Đóng cửa sổ
             ((Stage) this.content.getScene().getWindow()).close();
         });
 
@@ -68,7 +72,6 @@ public class PaymentForm extends BaseForm {
         AnchorPane.setRightAnchor(mainContainer, 0.0);
     }
 
-    // --- PHẦN 1: GIAO DIỆN VIETQR (GỌI SUBSYSTEM) ---
     private VBox createVietQRContent() {
         VBox box = new VBox(15);
         box.setPadding(new Insets(20));
@@ -77,7 +80,6 @@ public class PaymentForm extends BaseForm {
         Label guide = new Label("Quét mã để thanh toán (VietQR API):");
         guide.setFont(Font.font("Arial", 14));
 
-        // Khung hiển thị ảnh QR
         ImageView qrView = new ImageView();
         qrView.setFitWidth(300);
         qrView.setFitHeight(300);
@@ -87,19 +89,13 @@ public class PaymentForm extends BaseForm {
         Label statusLabel = new Label("Đang tải mã QR...");
         statusLabel.setTextFill(Color.BLUE);
 
-        // --- BẮT ĐẦU GỌI SUBSYSTEM ---
         try {
-            // 1. Khởi tạo Subsystem thông qua Interface
             IQRCodePayment paymentSubsystem = new VietQRSubsystem();
 
-            // 2. Gọi hàm generatePayUrl (Số tiền giả định 150k)
-            String qrUrl = paymentSubsystem.generatePayUrl(150000, "Thanh toan don hang AIMS");
+            String qrUrl = paymentSubsystem.generatePayUrl(this.amount, this.transactionContent);
 
-            // 3. Hiển thị ảnh từ URL trả về (backgroundLoading = true)
             Image image = new Image(qrUrl, true);
             qrView.setImage(image);
-
-            // Xóa chữ loading khi đã có link
             statusLabel.setText("");
 
         } catch (Exception e) {
@@ -107,9 +103,10 @@ public class PaymentForm extends BaseForm {
             statusLabel.setTextFill(Color.RED);
             e.printStackTrace();
         }
-        // --- KẾT THÚC GỌI SUBSYSTEM ---
 
-        Label totalLabel = new Label("Tổng tiền: 150.000 VND");
+        // SỬA: Hiển thị đúng số tiền
+        String formattedPrice = currencyFormatter.format(this.amount).replace("₫", "VND");
+        Label totalLabel = new Label("Tổng tiền: " + formattedPrice);
         totalLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
         totalLabel.setTextFill(Color.RED);
 
@@ -121,44 +118,22 @@ public class PaymentForm extends BaseForm {
         return box;
     }
 
-    // --- PHẦN 2: GIAO DIỆN PAYPAL (MOCK UI) ---
     private VBox createPayPalContent() {
+        // (Giữ nguyên phần này như cũ, chỉ cần sửa logic hiển thị tiền nếu muốn)
         VBox box = new VBox(15);
         box.setPadding(new Insets(30));
         box.setAlignment(Pos.CENTER);
-        box.setMaxWidth(400);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(15);
-        grid.setAlignment(Pos.CENTER);
-
-        // Các trường nhập liệu giả
-        grid.add(new Label("Chủ thẻ:"), 0, 0);
-        TextField nameField = new TextField();
-        nameField.setPromptText("NGUYEN VAN A");
-        grid.add(nameField, 1, 0);
-
-        grid.add(new Label("Số thẻ:"), 0, 1);
-        TextField cardField = new TextField();
-        cardField.setPromptText("xxxx-xxxx-xxxx-xxxx");
-        grid.add(cardField, 1, 1);
-
-        grid.add(new Label("Ngày hết hạn:"), 0, 2);
-        TextField dateField = new TextField();
-        dateField.setPromptText("MM/YY");
-        grid.add(dateField, 1, 2);
-
-        grid.add(new Label("Mã CVV:"), 0, 3);
-        TextField cvvField = new TextField();
-        cvvField.setPromptText("***");
-        grid.add(cvvField, 1, 3);
+        // Hiển thị tổng tiền động ở tab Paypal luôn
+        String formattedPrice = currencyFormatter.format(this.amount).replace("₫", "VND");
+        Label amountLabel = new Label("Số tiền cần thanh toán: " + formattedPrice);
+        amountLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
 
         Button payBtn = new Button("Thanh toán ngay");
         payBtn.setStyle("-fx-background-color: #0070ba; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10 20;");
         payBtn.setOnAction(e -> showSuccessAlert("PayPal (Credit Card)"));
 
-        box.getChildren().addAll(new Label("Nhập thông tin thẻ tín dụng:"), grid, payBtn);
+        box.getChildren().addAll(amountLabel, payBtn);
         return box;
     }
 
@@ -166,7 +141,8 @@ public class PaymentForm extends BaseForm {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Thanh toán thành công");
         alert.setHeaderText("Giao dịch hoàn tất!");
-        alert.setContentText("Bạn đã thanh toán thành công qua phương thức: " + method + ".\nHóa đơn điện tử đã được gửi về email.");
+        alert.setContentText("Đã nhận khoản thanh toán " + currencyFormatter.format(this.amount) + " qua " + method + ".\nCảm ơn bạn!");
         alert.showAndWait();
+        ((Stage) this.content.getScene().getWindow()).close();
     }
 }

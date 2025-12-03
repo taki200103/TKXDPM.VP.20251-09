@@ -6,19 +6,25 @@ import java.nio.charset.StandardCharsets;
 
 public class VietQRSubsystemController {
 
-    // CẤU HÌNH TÀI KHOẢN NHẬN TIỀN (Thay bằng số của bạn để test thật)
-    private static final String BANK_ID = "MB"; // Ngân hàng: MB, VCB, ACB, TPB...
-    private static final String ACCOUNT_NO = "1122334455"; // Số tài khoản người nhận
-    private static final String TEMPLATE = "compact"; // Giao diện QR (compact, print, qr_only)
-    private static final String ACCOUNT_NAME = "AIMS SHOP"; // Tên chủ tài khoản hiển thị
+    // --- CẤU HÌNH TÀI KHOẢN CỦA PHAM MINH DAT ---
+
+    // Mã ngân hàng VietinBank (ShortName là ICB hoặc Bin là 970415)
+    private static final String BANK_ID = "ICB";
+
+    // Số tài khoản (Lấy từ ảnh của bạn)
+    private static final String ACCOUNT_NO = "109875430178";
+
+    // Tên chủ tài khoản (Viết hoa không dấu)
+    private static final String ACCOUNT_NAME = "PHAM MINH DAT";
+
+    // Giao diện QR (compact là mẫu gọn đẹp nhất)
+    private static final String TEMPLATE = "compact";
 
     /**
      * Tạo URL gọi sang VietQR Quick Link API
-     * Docs: https://vietqr.io/danh-sach-api/api-quick-link/
-     * Format: https://img.vietqr.io/image/<BANK_ID>-<ACCOUNT_NO>-<TEMPLATE>.png?amount=<AMOUNT>&addInfo=<CONTENT>&accountName=<NAME>
      */
     public String generateQRUrl(int amount, String content) throws UnsupportedEncodingException {
-        // Encode nội dung (xử lý tiếng Việt và ký tự đặc biệt)
+        // Encode nội dung để tránh lỗi URL
         String encodedContent = URLEncoder.encode(content, StandardCharsets.UTF_8.toString());
         String encodedName = URLEncoder.encode(ACCOUNT_NAME, StandardCharsets.UTF_8.toString());
 

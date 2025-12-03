@@ -91,8 +91,23 @@ public class HomeForm extends BaseForm {
         // SỬA ĐOẠN NÀY ĐỂ KẾT NỐI VỚI MÀN HÌNH THANH TOÁN
         cartButton.setOnAction(e -> {
             try {
-                // Mở màn hình thanh toán giả lập
-                PaymentForm paymentForm = new PaymentForm();
+                // 1. Tính tổng tiền thực tế từ Giỏ hàng
+                int totalAmount = Cart.getCart().calSubtotal();
+
+                // 2. Tạo nội dung chuyển khoản ngẫu nhiên cho chuyên nghiệp
+                String contents = "AIMS Pay Order " + System.currentTimeMillis();
+
+                // 3. Truyền số tiền và nội dung vào PaymentForm
+                // Nếu giỏ hàng rỗng (0 đồng) thì cảnh báo
+                if (totalAmount == 0) {
+                    Alert alert = new Alert(Alert.AlertType.WARNING);
+                    alert.setTitle("Giỏ hàng rỗng");
+                    alert.setContentText("Vui lòng chọn sản phẩm trước khi thanh toán!");
+                    alert.showAndWait();
+                    return;
+                }
+
+                PaymentForm paymentForm = new PaymentForm(totalAmount, contents);
 
                 Stage stage = new Stage();
                 stage.setTitle("Thanh toán - AIMS");
