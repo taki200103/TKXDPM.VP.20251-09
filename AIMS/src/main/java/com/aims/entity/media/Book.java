@@ -114,6 +114,10 @@ public class Book extends Media {
         return this;
     }
 
+    public String getCoverType() {
+        return this.coverType;
+    }
+
     public String getPublisher() {
         return this.publisher;
     }
@@ -153,6 +157,10 @@ public class Book extends Media {
     public Book setBookCategory(String bookCategory) {
         this.bookCategory = bookCategory;
         return this;
+    }
+
+    public String getBookCategory() {
+        return this.bookCategory;
     }
 
     @Override

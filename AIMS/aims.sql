@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS Media (
     value DOUBLE PRECISION NOT NULL,
     quantity INTEGER NOT NULL,
     title VARCHAR(50) NOT NULL,
-    image_url VARCHAR(200) NOT NULL
+    image_url VARCHAR(200) NOT NULL,
+    description VARCHAR(200),
+    weight DOUBLE PRECISION
 );
 
 -- Bảng OrderMedia

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<AnchorPane fx:id="rootPane"
+            xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.aims.views.home.HomeForm">
+    <children>
+        <VBox fx:id="mainContainer" spacing="10" AnchorPane.topAnchor="0.0" AnchorPane.bottomAnchor="0.0"
+              AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0"
+              style="-fx-background-color: #f5f5f5;">
+            <padding>
+                <Insets topRightBottomLeft="20.0"/>
+            </padding>
+            <children>
+                <HBox fx:id="headerBox" spacing="15" alignment="CENTER_LEFT"
+                      style="-fx-background-color: #2c3e50; -fx-background-radius: 10;">
+                    <padding>
+                        <Insets topRightBottomLeft="15.0"/>
+                    </padding>
+                    <children>
+                        <Label fx:id="titleLabel" text="AIMS"
+                               style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+
+                        <TextField fx:id="searchField"
+                                   promptText="Search by title..."
+                                   HBox.hgrow="ALWAYS"
+                                   style="-fx-background-radius: 5; -fx-background-color: white;"/>
+
+                        <Button fx:id="searchButton" text="Search"
+                                style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8 16; -fx-background-radius: 5;"/>
+
+                        <ComboBox fx:id="sortCombo" prefWidth="140.0"
+                                  promptText="Sort By"/>
+
+                        <ComboBox fx:id="categoryCombo" prefWidth="140.0"
+                                  promptText="Category"/>
+
+                        <Region HBox.hgrow="ALWAYS"/>
+
+                        <Label fx:id="cartSummaryLabel" text="0 media"
+                               style="-fx-text-fill: white; -fx-font-size: 12px;"/>
+
+                        <Button fx:id="cartButton" text="Cart"
+                                style="-fx-background-color: transparent; -fx-border-color: white; -fx-border-radius: 5; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 6 10;"/>
+                    </children>
+                </HBox>
+
+                <ScrollPane fx:id="scrollPane" fitToWidth="true"
+                            hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            style="-fx-background-color: transparent;">
+                    <content>
+                        <FlowPane fx:id="productsPane"
+                                  hgap="20" vgap="20"
+                                  alignment="CENTER">
+                            <padding>
+                                <Insets topRightBottomLeft="20.0"/>
+                            </padding>
+                        </FlowPane>
+                    </content>
+                </ScrollPane>
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>
+
+

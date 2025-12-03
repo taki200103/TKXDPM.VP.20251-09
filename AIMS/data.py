@@ -1,3 +1,4 @@
+import os
 import psycopg2
 from faker import Faker
 import random
@@ -12,9 +13,36 @@ DB_CONFIG = {
 
 fake = Faker('vi_VN')
 
+# Paths to product images (relative to project root)
+BOOK_IMAGE_DIR = 'src/main/resources/picture/book'
+CD_IMAGE_DIR = 'src/main/resources/picture/cd'
+DVD_IMAGE_DIR = 'src/main/resources/picture/dvd'
+
+
+def _load_image_paths(directory: str):
+    """
+    Load all image file paths from a directory, returning relative paths
+    that can be used directly by the JavaFX client (File(media.getImageURL())).
+    """
+    if not os.path.isdir(directory):
+        return []
+
+    image_files = [
+        f for f in os.listdir(directory)
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))
+    ]
+
+    # Store path relative to project root, e.g. "src/main/resources/picture/book/Image_1.jpg"
+    return [f"{directory}/{name}" for name in image_files]
+
 def main():
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
+
+    # Preload image paths
+    book_images = _load_image_paths(BOOK_IMAGE_DIR)
+    cd_images = _load_image_paths(CD_IMAGE_DIR)
+    dvd_images = _load_image_paths(DVD_IMAGE_DIR)
     
     # DeliveryInfo
     cities = ['Hà Nội', 'HCM', 'Đà Nẵng']
@@ -26,12 +54,24 @@ def main():
                      fake.email(), fake.phone_number(), fake.sentence()))
         delivery_ids.append(cur.fetchone()[0])
     
-    # Media & Books
+    # Media & Books (chỉ sinh 20 book)
     book_ids = []
-    for i in range(30):
-        cur.execute("INSERT INTO Media (category, price, value, quantity, title, image_url) VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
-                    ('Book', round(random.uniform(50000, 500000), 2), round(random.uniform(45000, 450000), 2),
-                     random.randint(10, 100), f'Sách {i+1}', f'book{i}.jpg'))
+    for i in range(20):
+        # Chọn ngẫu nhiên một ảnh sách nếu có, nếu không thì để None
+        book_image = random.choice(book_images) if book_images else None
+
+        cur.execute(
+            "INSERT INTO Media (category, price, value, quantity, title, image_url) "
+            "VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
+            (
+                'Book',
+                round(random.uniform(50000, 500000), 2),
+                round(random.uniform(45000, 450000), 2),
+                random.randint(10, 100),
+                f'Sách {i+1}',
+                book_image,
+            ),
+        )
         mid = cur.fetchone()[0]
         book_ids.append(mid)
         cur.execute("INSERT INTO Book VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -41,9 +81,20 @@ def main():
     # Media & CDs
     cd_ids = []
     for i in range(20):
-        cur.execute("INSERT INTO Media (category, price, value, quantity, title, image_url) VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
-                    ('CD', round(random.uniform(100000, 300000), 2), round(random.uniform(90000, 270000), 2),
-                     random.randint(10, 50), f'CD {i+1}', f'cd{i}.jpg'))
+        cd_image = random.choice(cd_images) if cd_images else None
+
+        cur.execute(
+            "INSERT INTO Media (category, price, value, quantity, title, image_url) "
+            "VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
+            (
+                'CD',
+                round(random.uniform(100000, 300000), 2),
+                round(random.uniform(90000, 270000), 2),
+                random.randint(10, 50),
+                f'CD {i+1}',
+                cd_image,
+            ),
+        )
         mid = cur.fetchone()[0]
         cd_ids.append(mid)
         cur.execute("INSERT INTO CD VALUES (%s,%s,%s,%s,%s)",
@@ -52,9 +103,20 @@ def main():
     # Media & DVDs
     dvd_ids = []
     for i in range(20):
-        cur.execute("INSERT INTO Media (category, price, value, quantity, title, image_url) VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
-                    ('DVD', round(random.uniform(150000, 400000), 2), round(random.uniform(135000, 360000), 2),
-                     random.randint(10, 40), f'DVD {i+1}', f'dvd{i}.jpg'))
+        dvd_image = random.choice(dvd_images) if dvd_images else None
+
+        cur.execute(
+            "INSERT INTO Media (category, price, value, quantity, title, image_url) "
+            "VALUES (%s,%s,%s,%s,%s,%s) RETURNING media_id",
+            (
+                'DVD',
+                round(random.uniform(150000, 400000), 2),
+                round(random.uniform(135000, 360000), 2),
+                random.randint(10, 40),
+                f'DVD {i+1}',
+                dvd_image,
+            ),
+        )
         mid = cur.fetchone()[0]
         dvd_ids.append(mid)
         cur.execute("INSERT INTO DVD VALUES (%s,%s,%s,%s,%s,%s,%s)",
