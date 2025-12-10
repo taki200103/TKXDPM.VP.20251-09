@@ -3,6 +3,7 @@ package com.aims.views.payment;
 import com.aims.subsystem.IQRCodePayment;
 import com.aims.subsystem.vietqr.VietQRSubsystem;
 import com.aims.views.BaseForm;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -20,14 +21,13 @@ import java.util.Locale;
 
 public class PaymentForm extends BaseForm {
 
-    // Thêm biến để lưu số tiền
+    // Biến lưu số tiền và nội dung
     private int amount;
     private String transactionContent;
 
-    // Định dạng tiền tệ (Ví dụ: 150.000 VND)
+    // Định dạng tiền tệ
     private NumberFormat currencyFormatter = NumberFormat.getCurrencyInstance(Locale.of("vi", "VN"));
 
-    // SỬA CONSTRUCTOR: Nhận thêm tham số amount và content
     public PaymentForm(int amount, String content) throws IOException {
         super();
         this.amount = amount;
@@ -91,12 +91,11 @@ public class PaymentForm extends BaseForm {
 
         try {
             IQRCodePayment paymentSubsystem = new VietQRSubsystem();
-
             String qrUrl = paymentSubsystem.generatePayUrl(this.amount, this.transactionContent);
-
             Image image = new Image(qrUrl, true);
             qrView.setImage(image);
-            statusLabel.setText("");
+            statusLabel.setText("Đã tạo mã QR. Vui lòng quét.");
+            statusLabel.setTextFill(Color.GREEN);
 
         } catch (Exception e) {
             statusLabel.setText("Lỗi: " + e.getMessage());
@@ -104,36 +103,86 @@ public class PaymentForm extends BaseForm {
             e.printStackTrace();
         }
 
-        // SỬA: Hiển thị đúng số tiền
         String formattedPrice = currencyFormatter.format(this.amount).replace("₫", "VND");
         Label totalLabel = new Label("Tổng tiền: " + formattedPrice);
         totalLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
         totalLabel.setTextFill(Color.RED);
 
-        Button confirmBtn = new Button("Đã thanh toán xong");
-        confirmBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 16px;");
-        confirmBtn.setOnAction(e -> showSuccessAlert("VietQR"));
+        // --- NÚT GIẢ LẬP CALLBACK (Check Status) ---
+        Button checkStatusBtn = new Button("Kiểm tra trạng thái giao dịch");
+        checkStatusBtn.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 10 20;");
 
-        box.getChildren().addAll(guide, qrView, statusLabel, totalLabel, confirmBtn);
+        checkStatusBtn.setOnAction(e -> {
+            statusLabel.setText("Hệ thống đang kiểm tra giao dịch...");
+            statusLabel.setTextFill(Color.ORANGE);
+            checkStatusBtn.setDisable(true);
+
+            // Giả lập độ trễ 2 giây
+            javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(2));
+
+            pause.setOnFinished(event -> {
+                // Dùng Platform.runLater để tránh lỗi xung đột luồng
+                Platform.runLater(() -> {
+                    showSuccessAlert("VietQR (Callback Success)");
+                });
+            });
+            pause.play();
+        });
+
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER);
+        // Chỉ thêm nút checkStatusBtn, bỏ confirmBtn
+        buttonBox.getChildren().addAll(checkStatusBtn);
+
+        box.getChildren().addAll(guide, qrView, statusLabel, totalLabel, buttonBox);
         return box;
     }
 
     private VBox createPayPalContent() {
-        // (Giữ nguyên phần này như cũ, chỉ cần sửa logic hiển thị tiền nếu muốn)
         VBox box = new VBox(15);
         box.setPadding(new Insets(30));
         box.setAlignment(Pos.CENTER);
 
-        // Hiển thị tổng tiền động ở tab Paypal luôn
         String formattedPrice = currencyFormatter.format(this.amount).replace("₫", "VND");
         Label amountLabel = new Label("Số tiền cần thanh toán: " + formattedPrice);
         amountLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
 
-        Button payBtn = new Button("Thanh toán ngay");
-        payBtn.setStyle("-fx-background-color: #0070ba; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10 20;");
-        payBtn.setOnAction(e -> showSuccessAlert("PayPal (Credit Card)"));
+        // Hướng dẫn
+        Label guideLabel = new Label("Hệ thống sẽ mở trình duyệt để bạn đăng nhập PayPal");
+        guideLabel.setTextFill(Color.GRAY);
 
-        box.getChildren().addAll(amountLabel, payBtn);
+        // Nút thanh toán
+        Button payBtn = new Button("Thanh toán qua PayPal");
+        payBtn.setStyle("-fx-background-color: #0070ba; -fx-text-fill: white; -fx-font-size: 16px; -fx-padding: 10 20;");
+
+        payBtn.setOnAction(e -> {
+            try {
+                // 1. Gọi Subsystem để lấy link
+                IQRCodePayment paypalSystem = new com.aims.subsystem.paypal.PayPalSubsystem();
+                String payUrl = paypalSystem.generatePayUrl(this.amount, this.transactionContent);
+
+                // 2. Mở trình duyệt mặc định của máy tính
+                java.awt.Desktop.getDesktop().browse(new java.net.URI(payUrl));
+
+                // 3. Hiển thị thông báo chờ
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Đang thanh toán");
+                alert.setHeaderText("Vui lòng hoàn tất trên trình duyệt");
+                alert.setContentText("Sau khi thanh toán xong trên PayPal, hãy quay lại đây và bấm nút.");
+                alert.showAndWait();
+
+                // (Ở đây ta có thể giả lập callback thành công luôn sau khi user bấm OK)
+                showSuccessAlert("PayPal (API Success)");
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setContentText("Lỗi: " + ex.getMessage());
+                alert.show();
+            }
+        });
+
+        box.getChildren().addAll(amountLabel, guideLabel, payBtn);
         return box;
     }
 
@@ -143,6 +192,7 @@ public class PaymentForm extends BaseForm {
         alert.setHeaderText("Giao dịch hoàn tất!");
         alert.setContentText("Đã nhận khoản thanh toán " + currencyFormatter.format(this.amount) + " qua " + method + ".\nCảm ơn bạn!");
         alert.showAndWait();
+        // Đóng cửa sổ sau khi bấm OK
         ((Stage) this.content.getScene().getWindow()).close();
     }
 }

@@ -15,10 +15,19 @@ public class VietQRSubsystem implements IQRCodePayment {
     @Override
     public String generatePayUrl(int amount, String content) throws PaymentException {
         try {
-            // Gọi controller để xử lý logic tạo link
             return this.ctrl.generateQRUrl(amount, content);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new PaymentException("Lỗi khi tạo mã VietQR: " + e.getMessage());
         }
+    }
+
+    @Override
+    public String refund(int amount, String content) throws PaymentException {
+        // VietQR cá nhân không có API hoàn tiền tự động.
+        // Ta giả lập hành động này hoặc thông báo cho Admin.
+        System.out.println("VietQR: Đang thực hiện hoàn tiền thủ công cho số tiền " + amount);
+
+        // Trả về thông báo thành công giả định để hệ thống AIMS ghi nhận hủy đơn
+        return "Yêu cầu hoàn tiền thành công (VietQR - Manual Process)";
     }
 }
