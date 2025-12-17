@@ -5,7 +5,8 @@ import com.aims.entity.cart.Cart;
 import com.aims.entity.cart.CartMedia;
 import com.aims.entity.media.Media;
 import com.aims.views.BaseForm;
-import com.aims.views.payment.PaymentForm; // Import form thanh toán
+import com.aims.views.payment.PaymentForm;
+import com.aims.views.payment.PaymentScreenHandler; // [NEW] Import Handler
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -22,9 +23,17 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
-
+// [SOLID VIOLATION]: SRP (Single Responsibility Principle)
+// LÝ DO: Class này đang làm quá nhiều việc (Low Cohesion):
+// 1. Quản lý layout chung của trang chủ (Header, ScrollPane).
+// 2. Chứa logic khởi tạo và chuyển sang màn hình thanh toán (Navigation Logic).
+// 3. Chứa logic chi tiết về cách hiển thị từng thẻ sản phẩm (createProductCard).
+// -> Nếu muốn sửa cách hiển thị thẻ sản phẩm (Media), ta phải sửa HomeForm.
+// -> Nếu muốn sửa logic chuyển trang, ta cũng phải sửa HomeForm.
 public class HomeForm extends BaseForm {
-
+    // [SOLID VIOLATION]: DIP (Dependency Inversion Principle)
+    // LÝ DO: Phụ thuộc trực tiếp vào Concrete Class (HomeController) thay vì Interface/Abstraction.
+    // Hậu quả: Không thể Mock HomeController để test giao diện HomeForm độc lập.
     private HomeController homeController;
     private ScrollPane scrollPane;
     private FlowPane productsPane;
@@ -88,17 +97,22 @@ public class HomeForm extends BaseForm {
         cartButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14px; " +
                 "-fx-padding: 10 20; -fx-background-radius: 5;");
 
-        // SỬA ĐOẠN NÀY ĐỂ KẾT NỐI VỚI MÀN HÌNH THANH TOÁN
+        // --- [UPDATED] LOGIC CHUYỂN MÀN HÌNH THANH TOÁN ---
         cartButton.setOnAction(e -> {
             try {
+                // [SOLID VIOLATION]: SRP & Coupling
+                // LÝ DO: Logic khởi tạo và chuyển màn hình (Navigation) quá phức tạp để đặt trong một View.
+                // HomeForm phải biết quá nhiều về cấu trúc của PaymentScreenHandler và PaymentForm.
+                // Nên đẩy logic này ra một lớp Router hoặc Navigator riêng.
+
+                // DIP VIOLATION: Hard-code khởi tạo PaymentScreenHandler
                 // 1. Tính tổng tiền thực tế từ Giỏ hàng
                 int totalAmount = Cart.getCart().calSubtotal();
 
                 // 2. Tạo nội dung chuyển khoản ngẫu nhiên cho chuyên nghiệp
                 String contents = "AIMS Pay Order " + System.currentTimeMillis();
 
-                // 3. Truyền số tiền và nội dung vào PaymentForm
-                // Nếu giỏ hàng rỗng (0 đồng) thì cảnh báo
+                // 3. Nếu giỏ hàng rỗng (0 đồng) thì cảnh báo
                 if (totalAmount == 0) {
                     Alert alert = new Alert(Alert.AlertType.WARNING);
                     alert.setTitle("Giỏ hàng rỗng");
@@ -107,19 +121,32 @@ public class HomeForm extends BaseForm {
                     return;
                 }
 
-                PaymentForm paymentForm = new PaymentForm(totalAmount, contents);
+                // 4. Khởi tạo Stage mới
+                Stage paymentStage = new Stage();
+                paymentStage.setTitle("Thanh toán - AIMS");
 
-                Stage stage = new Stage();
-                stage.setTitle("Thanh toán - AIMS");
-                stage.setScene(new Scene(paymentForm.getContent()));
-                stage.setWidth(800);
-                stage.setHeight(600);
-                stage.show();
+                // 5. [QUAN TRỌNG] Khởi tạo Handler trước
+                // Handler đóng vai trò Controller, xử lý logic cho màn hình thanh toán
+                PaymentScreenHandler paymentHandler = new PaymentScreenHandler(paymentStage, "");
+
+                // 6. [QUAN TRỌNG] Khởi tạo View và tiêm (Inject) Handler vào
+                // View (PaymentForm) sẽ dùng Handler này để gọi API PayPal/VietQR
+                PaymentForm paymentForm = new PaymentForm(totalAmount, contents, paymentHandler);
+
+                // 7. Hiển thị
+                paymentStage.setScene(new Scene(paymentForm.getContent()));
+                paymentStage.setWidth(800);
+                paymentStage.setHeight(600);
+                paymentStage.show();
 
             } catch (Exception ex) {
                 ex.printStackTrace();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setContentText("Không thể mở màn hình thanh toán: " + ex.getMessage());
+                alert.show();
             }
         });
+        // --------------------------------------------------
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -153,7 +180,12 @@ public class HomeForm extends BaseForm {
             e.printStackTrace();
         }
     }
-
+    // [SOLID VIOLATION]: OCP (Open/Closed Principle)
+    // LÝ DO: Phương thức này vi phạm nguyên lý Đóng/Mở.
+    // Hiện tại nó đang vẽ chung cho tất cả loại Media.
+    // Tình huống: Nếu sau này có loại sản phẩm mới (VD: "E-book" cần nút "Read Now" thay vì "Add to Cart"),
+    // ta buộc phải sửa code trong hàm này (dùng if/else kiểm tra type).
+    // -> Code không đóng với việc sửa đổi.
     private VBox createProductCard(Media media) {
         VBox card = new VBox(10);
         card.setPadding(new Insets(15));

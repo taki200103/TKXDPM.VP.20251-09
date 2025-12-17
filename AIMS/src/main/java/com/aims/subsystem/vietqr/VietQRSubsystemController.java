@@ -5,6 +5,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class VietQRSubsystemController {
+    // [SOLID VIOLATION]: SRP (Single Responsibility Principle) - Nguyên lý Đơn nhiệm
+    // LÝ DO: Class Controller này có nhiệm vụ xử lý logic tạo URL.
+    // Tuy nhiên, nó đang chứa cả DỮ LIỆU CẤU HÌNH (Config Data) như số tài khoản, tên ngân hàng.
+    // Nếu muốn đổi số tài khoản nhận tiền, ta phải sửa class Controller -> Vi phạm SRP.
 
     // --- CẤU HÌNH TÀI KHOẢN CỦA PHAM MINH DAT ---
 

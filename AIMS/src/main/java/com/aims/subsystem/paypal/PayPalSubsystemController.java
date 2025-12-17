@@ -20,7 +20,6 @@ public class PayPalSubsystemController {
         this.httpClient = HttpClient.newHttpClient();
     }
 
-    // ... (Giữ nguyên hàm getAccessToken của bạn) ...
     private String getAccessToken() throws Exception {
         String auth = PayPalConfig.CLIENT_ID + ":" + PayPalConfig.CLIENT_SECRET;
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
@@ -43,17 +42,18 @@ public class PayPalSubsystemController {
     }
 
     /**
-     * Refactor: Dùng GSON để tạo body JSON thay vì nối chuỗi
+     * Tạo đơn hàng trên PayPal (Create Order API)
      */
     public String createOrder(int amount) throws Exception {
         String accessToken = getAccessToken();
 
-        // Convert VND -> USD (Nên đưa tỷ giá vào Config)
-        double amountUSD = amount / 24000.0;
-        // Sử dụng Locale.US để đảm bảo luôn dùng dấu chấm động (.)
+        // [CLEAN CODE]: Sử dụng tỷ giá từ Config thay vì hard-code số 24000
+        double amountUSD = amount / PayPalConfig.VND_TO_USD_EXCHANGE_RATE;
+
+        // Format số tiền (Luôn dùng dấu chấm thập phân chuẩn US)
         String amountStr = String.format(Locale.US, "%.2f", amountUSD);
 
-        // Xây dựng JSON Body bằng GSON
+        // Xây dựng JSON Body bằng thư viện GSON
         JsonObject amountJson = new JsonObject();
         amountJson.addProperty("currency_code", "USD");
         amountJson.addProperty("value", amountStr);
@@ -68,10 +68,11 @@ public class PayPalSubsystemController {
         orderRequest.addProperty("intent", "CAPTURE");
         orderRequest.add("purchase_units", purchaseUnits);
 
-        // Thêm return_url và cancel_url (PayPal yêu cầu cái này để redirect user sau khi thanh toán)
+        // [CLEAN CODE]: Sử dụng URL từ Config
         JsonObject applicationContext = new JsonObject();
-        applicationContext.addProperty("return_url", "http://localhost:8080/paypal-success"); // URL ảo demo
-        applicationContext.addProperty("cancel_url", "http://localhost:8080/paypal-cancel");
+        applicationContext.addProperty("return_url", PayPalConfig.RETURN_URL);
+        applicationContext.addProperty("cancel_url", PayPalConfig.CANCEL_URL);
+
         orderRequest.add("application_context", applicationContext);
 
         String requestBody = orderRequest.toString();
@@ -91,10 +92,7 @@ public class PayPalSubsystemController {
 
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
 
-        // Cần lưu lại Order ID để lát nữa thực hiện Capture
-        String orderId = jsonResponse.get("id").getAsString();
-        System.out.println("PayPal Order ID: " + orderId);
-
+        // Lấy link approve để trả về cho người dùng
         var links = jsonResponse.getAsJsonArray("links");
         for (var link : links) {
             JsonObject linkObj = link.getAsJsonObject();
@@ -103,12 +101,12 @@ public class PayPalSubsystemController {
             }
         }
 
-        throw new Exception("No approve link found");
+        throw new Exception("No approve link found in PayPal response");
     }
 
     /**
-     * Bước 3: Capture Order (Thực hiện trừ tiền sau khi user approve)
-     * Cần gọi hàm này khi user được redirect về return_url
+     * Xác nhận thanh toán (Capture Order API)
+     * Hàm này sẽ được gọi khi người dùng quay lại từ PayPal (logic mở rộng sau này)
      */
     public boolean captureOrder(String orderId) throws Exception {
         String accessToken = getAccessToken();
