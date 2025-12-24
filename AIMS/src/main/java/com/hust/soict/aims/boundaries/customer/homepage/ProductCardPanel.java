@@ -3,12 +3,19 @@ package com.hust.soict.aims.boundaries.customer.homepage;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
 
 import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.controls.CartController;
+import com.hust.soict.aims.utils.RoundedPanel;
+import com.hust.soict.aims.utils.RoundedButton;
+import com.hust.soict.aims.utils.ImageUtils;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
-public class ProductCardPanel extends JPanel {
+public class ProductCardPanel extends RoundedPanel {
     private final Product product;
     private final CartController cart;
     private final Component parentComponent;
@@ -24,9 +31,13 @@ public class ProductCardPanel extends JPanel {
      * @param parent Parent component for dialog positioning
      */
     public ProductCardPanel(Product product, CartController cart, Component parent) {
+        super(12, true); // Rounded corners with shadow
         this.product = product;
         this.cart = cart;
         this.parentComponent = parent;
+        
+        setBackground(BACKGROUND_WHITE);
+        setBorder(BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM));
         
         setupUI();
     }
@@ -36,56 +47,158 @@ public class ProductCardPanel extends JPanel {
      */
     private void setupUI() {
         setLayout(new BorderLayout(SPACING_SMALL, SPACING_SMALL));
-        setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER_LIGHT),
-            PADDING_MEDIUM
-        ));
-        setBackground(BACKGROUND_WHITE);
         
-        // Product title (top)
-        JLabel titleLabel = new JLabel(product.getTitle());
-        titleLabel.setFont(FONT_PRODUCT_NAME);
-        titleLabel.setForeground(TEXT_PRIMARY);
-        add(titleLabel, BorderLayout.NORTH);
+        // Main content panel: Image left, Info right
+        JPanel contentPanel = new JPanel(new BorderLayout(SPACING_MEDIUM, 0));
+        contentPanel.setOpaque(false);
         
-        // Product info (center)
-        JPanel infoPanel = new JPanel(new GridLayout(2, 1, 0, SPACING_XSMALL));
+        // Left: Product image (square)
+        JPanel imagePanel = createImagePanel();
+        contentPanel.add(imagePanel, BorderLayout.WEST);
+        
+        // Right: Product info
+        JPanel infoPanel = createInfoPanel();
+        contentPanel.add(infoPanel, BorderLayout.CENTER);
+        
+        add(contentPanel, BorderLayout.CENTER);
+        
+        // Bottom: Buttons
+        JPanel buttonPanel = createButtonPanel();
+        add(buttonPanel, BorderLayout.SOUTH);
+    }
+    
+    /**
+     * Create product image panel (square, left side)
+     */
+    private JPanel createImagePanel() {
+        JPanel imagePanel = new RoundedPanel(8, false);
+        imagePanel.setBackground(BACKGROUND_LIGHT);
+        int imageSize = 120; // Square image
+        imagePanel.setPreferredSize(new Dimension(imageSize, imageSize));
+        imagePanel.setMinimumSize(new Dimension(imageSize, imageSize));
+        imagePanel.setMaximumSize(new Dimension(imageSize, imageSize));
+        imagePanel.setBorder(BorderFactory.createEmptyBorder(SPACING_SMALL, SPACING_SMALL, SPACING_SMALL, SPACING_SMALL));
+        
+        JLabel imageLabel = new JLabel();
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+        
+        // Get image path (use ImageUtils to get path from product ID)
+        String imagePath = product.getImagePath();
+        if (imagePath == null || imagePath.isEmpty()) {
+            imagePath = ImageUtils.getProductImagePath(product.getId());
+        } else {
+            // Verify the path exists, if not try to get from ID
+            File imageFile = new File(imagePath);
+            if (!imageFile.exists()) {
+                imagePath = ImageUtils.getProductImagePath(product.getId());
+            }
+        }
+        
+        // Try to load image if path exists
+        if (imagePath != null) {
+            File imageFile = new File(imagePath);
+            if (imageFile.exists()) {
+                ImageIcon icon = new ImageIcon(imagePath);
+                Image img = icon.getImage();
+                // Scale image to fit square while maintaining aspect ratio
+                int maxSize = 100; // Leave some padding
+                int imgWidth = icon.getIconWidth();
+                int imgHeight = icon.getIconHeight();
+                
+                double scale = Math.min((double)maxSize / imgWidth, (double)maxSize / imgHeight);
+                int scaledWidth = (int)(imgWidth * scale);
+                int scaledHeight = (int)(imgHeight * scale);
+                
+                Image scaledImg = img.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+                imageLabel.setIcon(new ImageIcon(scaledImg));
+            } else {
+                // Placeholder for missing image
+                imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>Không có<br>ảnh</div></center></html>");
+                imageLabel.setFont(FONT_SMALL);
+                imageLabel.setForeground(TEXT_SECONDARY);
+            }
+        } else {
+            // Placeholder for no image path
+            imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>Không có<br>ảnh</div></center></html>");
+            imageLabel.setFont(FONT_SMALL);
+            imageLabel.setForeground(TEXT_SECONDARY);
+        }
+        
+        imagePanel.setLayout(new BorderLayout());
+        imagePanel.add(imageLabel, BorderLayout.CENTER);
+        
+        return imagePanel;
+    }
+    
+    /**
+     * Create product info panel (right side)
+     */
+    private JPanel createInfoPanel() {
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
         infoPanel.setOpaque(false);
         
-        JLabel priceLabel = new JLabel(String.format("Price: $%.2f", product.getCurrentPrice()));
-        priceLabel.setFont(FONT_BODY);
-        priceLabel.setForeground(INFO_COLOR);
+        // Product title
+        JLabel titleLabel = new JLabel("<html><div style='text-align: left; width: 100%;'>" + 
+                                      product.getTitle() + "</div></html>");
+        titleLabel.setFont(FONT_PRODUCT_NAME);
+        titleLabel.setForeground(TEXT_PRIMARY);
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        infoPanel.add(titleLabel);
+        infoPanel.add(Box.createVerticalStrut(SPACING_SMALL));
         
-        JLabel weightLabel = new JLabel(String.format("Weight: %.2f kg", product.getWeight()));
+        // Price with VND format (with thousand separators)
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.getDefault());
+        symbols.setGroupingSeparator('.');
+        DecimalFormat df = new DecimalFormat("#,###", symbols);
+        String priceText = df.format((long)product.getCurrentPrice()) + " VND";
+        
+        JLabel priceLabel = new JLabel(priceText);
+        priceLabel.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_PRODUCT_NAME));
+        priceLabel.setForeground(PRIMARY_COLOR);
+        priceLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        infoPanel.add(priceLabel);
+        infoPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
+        
+        // Weight info
+        JLabel weightLabel = new JLabel(String.format("Trọng lượng: %.2f kg", product.getWeight()));
         weightLabel.setFont(FONT_SMALL);
         weightLabel.setForeground(TEXT_SECONDARY);
-        
-        infoPanel.add(priceLabel);
+        weightLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         infoPanel.add(weightLabel);
-        add(infoPanel, BorderLayout.CENTER);
         
-        // Buttons (bottom)
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, SPACING_XSMALL, 0));
+        // Add flexible space to push content to top
+        infoPanel.add(Box.createVerticalGlue());
+        
+        return infoPanel;
+    }
+    
+    /**
+     * Create button panel (bottom)
+     */
+    private JPanel createButtonPanel() {
+        JPanel buttonPanel = new JPanel(new GridLayout(1, 2, SPACING_SMALL, 0));
         buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(SPACING_SMALL, 0, 0, 0));
         
-        JButton addButton = createAddButton();
-        JButton infoButton = createInfoButton();
+        RoundedButton addButton = createAddButton();
+        RoundedButton infoButton = createInfoButton();
         
         buttonPanel.add(addButton);
         buttonPanel.add(infoButton);
-        add(buttonPanel, BorderLayout.SOUTH);
+        
+        return buttonPanel;
     }
     
     /**
      * Create "Add to Cart" button
      */
-    private JButton createAddButton() {
-        JButton addButton = new JButton("Add");
+    private RoundedButton createAddButton() {
+        RoundedButton addButton = new RoundedButton("Thêm vào giỏ", 8);
         addButton.setFont(FONT_BUTTON);
         addButton.setBackground(PRIMARY_COLOR);
         addButton.setForeground(TEXT_ON_PRIMARY);
-        addButton.setFocusPainted(false);
-        addButton.setPreferredSize(new Dimension(70, 35));
         addButton.setCursor(CURSOR_HAND);
         
         addButton.addActionListener(e -> {
@@ -93,8 +206,8 @@ public class ProductCardPanel extends JPanel {
             
             // Show confirmation message
             JOptionPane.showMessageDialog(parentComponent, 
-                "Added to cart: " + product.getTitle(), 
-                "Cart", 
+                "Đã thêm vào giỏ: " + product.getTitle(), 
+                "Giỏ hàng", 
                 JOptionPane.INFORMATION_MESSAGE);
             
             // Trigger callback if set
@@ -109,13 +222,11 @@ public class ProductCardPanel extends JPanel {
     /**
      * Create "Info" button
      */
-    private JButton createInfoButton() {
-        JButton infoButton = new JButton("Info");
+    private RoundedButton createInfoButton() {
+        RoundedButton infoButton = new RoundedButton("Chi tiết", 8);
         infoButton.setFont(FONT_BUTTON);
         infoButton.setBackground(BACKGROUND_GRAY);
         infoButton.setForeground(TEXT_PRIMARY);
-        infoButton.setFocusPainted(false);
-        infoButton.setPreferredSize(BUTTON_SIZE_ICON);
         infoButton.setCursor(CURSOR_HAND);
         
         infoButton.addActionListener(e -> {

@@ -19,10 +19,13 @@ public class Homepage extends BaseScreenHandler {
     private JPanel gridPanel;
     private PaginationPanel paginationPanel;
     private ProductSearchPanel searchPanel;
-    private JButton cartButton;
+    private com.hust.soict.aims.utils.RoundedButton cartButton;
     
-    // Current search term
+    // Current search filters
     private String currentSearchTerm = "";
+    private String currentCategory = null;
+    private Double currentMinPrice = null;
+    private Double currentMaxPrice = null;
     
     public Homepage(ProductController productController, CartController cartController) {
         super("AIMS - Homepage", null, false);
@@ -38,11 +41,12 @@ public class Homepage extends BaseScreenHandler {
     
     @Override
     protected void initComponents() {
-        // Initialize grid panel for products
+        // Initialize grid panel for products with better spacing
         gridPanel = new JPanel();
         gridPanel.setLayout(new GridLayout(PRODUCT_GRID_ROWS, PRODUCT_GRID_COLS, 
-                                          PRODUCT_GRID_HGAP, PRODUCT_GRID_VGAP));
+                                          PRODUCT_GRID_HGAP + 5, PRODUCT_GRID_VGAP + 5));
         gridPanel.setBackground(BACKGROUND_LIGHT);
+        gridPanel.setOpaque(true);
         
         // Initialize search panel
         searchPanel = new ProductSearchPanel();
@@ -50,27 +54,30 @@ public class Homepage extends BaseScreenHandler {
         // Initialize pagination panel
         paginationPanel = new PaginationPanel();
         
-        // Initialize cart button
-        cartButton = new JButton(getCartButtonText());
+        // Initialize cart button with rounded corners
+        cartButton = new com.hust.soict.aims.utils.RoundedButton(getCartButtonText(), 8);
         cartButton.setFont(FONT_BUTTON);
-        cartButton.setBackground(PRIMARY_COLOR);
+        cartButton.setBackground(new Color(255, 255, 255, 30)); // Semi-transparent white
         cartButton.setForeground(TEXT_ON_PRIMARY);
-        cartButton.setFocusPainted(false);
         cartButton.setCursor(CURSOR_HAND);
+        cartButton.setPreferredSize(new Dimension(120, 40));
     }
     
     @Override
     protected void setupLayout() {
-        setLayout(new BorderLayout(SPACING_SMALL, SPACING_SMALL));
+        setLayout(new BorderLayout(0, 0));
+        setBackground(BACKGROUND_LIGHT);
         
         // Top Panel (Header + Search)
-        JPanel topPanel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel(new BorderLayout(0, SPACING_MEDIUM));
+        topPanel.setBackground(BACKGROUND_LIGHT);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM));
         
-        // Header Panel
+        // Header Panel with rounded bottom corners
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(PRIMARY_COLOR);
-        headerPanel.setBorder(PADDING_SMALL);
-        headerPanel.setPreferredSize(new Dimension(0, HEADER_HEIGHT));
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_LARGE, SPACING_MEDIUM, SPACING_LARGE));
+        headerPanel.setPreferredSize(new Dimension(0, HEADER_HEIGHT + 10));
         
         JLabel titleLabel = new JLabel("AIMS - Product Store");
         titleLabel.setFont(FONT_TITLE);
@@ -83,21 +90,38 @@ public class Homepage extends BaseScreenHandler {
         
         add(topPanel, BorderLayout.NORTH);
         
-        // Center - Product grid with scroll
-        JScrollPane scrollPane = new JScrollPane(gridPanel);
-        scrollPane.setBorder(PADDING_SMALL);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        add(scrollPane, BorderLayout.CENTER);
+        // Center - Product grid with scroll (with padding)
+        JPanel centerWrapper = new JPanel(new BorderLayout());
+        centerWrapper.setBackground(BACKGROUND_LIGHT);
+        centerWrapper.setBorder(BorderFactory.createEmptyBorder(0, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM));
         
-        // Footer - Pagination
-        add(paginationPanel, BorderLayout.SOUTH);
+        JScrollPane scrollPane = new JScrollPane(gridPanel);
+        scrollPane.setBorder(null);
+        scrollPane.setBackground(BACKGROUND_LIGHT);
+        scrollPane.getViewport().setBackground(BACKGROUND_LIGHT);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        
+        centerWrapper.add(scrollPane, BorderLayout.CENTER);
+        add(centerWrapper, BorderLayout.CENTER);
+        
+        // Footer - Pagination (with padding)
+        JPanel footerWrapper = new JPanel(new BorderLayout());
+        footerWrapper.setBackground(BACKGROUND_LIGHT);
+        footerWrapper.setBorder(BorderFactory.createEmptyBorder(0, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM));
+        footerWrapper.add(paginationPanel, BorderLayout.CENTER);
+        add(footerWrapper, BorderLayout.SOUTH);
     }
     
     @Override
     protected void bindEvents() {
         // Bind search events
-        searchPanel.addSearchListener(searchTerm -> {
+        searchPanel.addSearchListener((searchTerm, category, minPrice, maxPrice) -> {
             currentSearchTerm = searchTerm;
+            currentCategory = category;
+            currentMinPrice = minPrice;
+            currentMaxPrice = maxPrice;
             paginationPanel.reset();
             refresh();
         });
@@ -145,18 +169,35 @@ public class Homepage extends BaseScreenHandler {
         // Get current page from pagination panel
         int currentPage = paginationPanel.getCurrentPage();
         
-        // Load products (search or all)
+        // Load products with filters
         List<Product> products;
         int total;
         
-        if (currentSearchTerm.isEmpty()) {
+        // Check if any filter is active
+        boolean hasFilters = !currentSearchTerm.isEmpty() || 
+                            currentCategory != null || 
+                            currentMinPrice != null || 
+                            currentMaxPrice != null;
+        
+        if (hasFilters) {
+            // Use filtered search
+            products = productController.searchProductsWithFilters(
+                currentSearchTerm, 
+                currentCategory, 
+                currentMinPrice, 
+                currentMaxPrice, 
+                currentPage
+            );
+            total = productController.countFilteredResults(
+                currentSearchTerm, 
+                currentCategory, 
+                currentMinPrice, 
+                currentMaxPrice
+            );
+        } else {
             // Load all products
             products = productController.getPage(currentPage);
             total = productController.countProducts();
-        } else {
-            // Search products
-            products = productController.searchProducts(currentSearchTerm, currentPage);
-            total = productController.countSearchResults(currentSearchTerm);
         }
         
         // Show message if no results

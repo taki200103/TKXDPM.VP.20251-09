@@ -45,6 +45,44 @@ public class ProductController {
         }
         return Database.countSearchResults(searchTerm.trim());
     }
+    
+    /**
+     * Search and filter products with multiple criteria
+     * @param searchTerm Search term for title (can be empty)
+     * @param category Product category/type (can be null or "all" for all)
+     * @param minPrice Minimum price in VND (can be null)
+     * @param maxPrice Maximum price in VND (can be null)
+     * @param pageIndex Page index (0-based)
+     * @return List of matching products for the given page
+     */
+    public List<Product> searchProductsWithFilters(String searchTerm, String category, Double minPrice, Double maxPrice, int pageIndex) {
+        int offset = pageIndex * PAGE_SIZE;
+        return Database.searchProductsWithFilters(
+            searchTerm != null ? searchTerm.trim() : "",
+            category,
+            minPrice,
+            maxPrice,
+            offset,
+            PAGE_SIZE
+        );
+    }
+    
+    /**
+     * Count products matching filter criteria
+     * @param searchTerm Search term for title (can be empty)
+     * @param category Product category/type (can be null or "all" for all)
+     * @param minPrice Minimum price in VND (can be null)
+     * @param maxPrice Maximum price in VND (can be null)
+     * @return Number of matching products
+     */
+    public int countFilteredResults(String searchTerm, String category, Double minPrice, Double maxPrice) {
+        return Database.countFilteredResults(
+            searchTerm != null ? searchTerm.trim() : "",
+            category,
+            minPrice,
+            maxPrice
+        );
+    }
 
     public int getPageSize() { return PAGE_SIZE; }
 }

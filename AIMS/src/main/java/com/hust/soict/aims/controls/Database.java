@@ -1,6 +1,7 @@
 package com.hust.soict.aims.controls;
 
 import com.hust.soict.aims.entities.*;
+import com.hust.soict.aims.utils.ImageUtils;
 
 import java.sql.*;
 import java.util.*;
@@ -25,6 +26,22 @@ public class Database {
                 if (!hasColumn(conn, "products", "stock")) {
                     try (Statement st2 = conn.createStatement()) {
                         st2.execute("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 10");
+                    } catch (SQLException ex) {
+                        // ignore
+                    }
+                }
+                // ensure barcode column exists
+                if (!hasColumn(conn, "products", "barcode")) {
+                    try (Statement st2 = conn.createStatement()) {
+                        st2.execute("ALTER TABLE products ADD COLUMN barcode TEXT");
+                    } catch (SQLException ex) {
+                        // ignore
+                    }
+                }
+                // ensure imagePath column exists
+                if (!hasColumn(conn, "products", "imagePath")) {
+                    try (Statement st2 = conn.createStatement()) {
+                        st2.execute("ALTER TABLE products ADD COLUMN imagePath TEXT");
                     } catch (SQLException ex) {
                         // ignore
                     }
@@ -55,8 +72,9 @@ public class Database {
     }
 
     private static void seed(Connection conn) throws SQLException {
-        String insert = "INSERT INTO products(type,title,originalValue,currentPrice,weight,dimension,description,extra) VALUES (?,?,?,?,?,?,?,?)";
+        String insert = "INSERT INTO products(type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath) VALUES (?,?,?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = conn.prepareStatement(insert)) {
+            long productId = 1;
             // add 15 books
             for (int i = 1; i <= 15; i++) {
                 ps.setString(1, "book");
@@ -68,7 +86,10 @@ public class Database {
                 ps.setString(7, "A great book.");
                 String extra = "author=Author " + i + ";;coverType=paperback;;publisher=Pub " + i + ";;publicationDate=2020-01-0" + ((i%9)+1) + "";
                 ps.setString(8, extra);
+                ps.setString(9, "BOOK" + String.format("%06d", i));
+                ps.setString(10, ImageUtils.getProductImagePathAlways(productId));
                 ps.executeUpdate();
+                productId++;
             }
 
             // add 10 newspapers
@@ -82,7 +103,10 @@ public class Database {
                 ps.setString(7, "Daily news.");
                 String extra = "editorInChief=Editor " + i + ";;publisher=NewsPub;;publicationDate=2025-10-0" + ((i%9)+1) + ";;issueNumber=" + i + ";;publicationFrequency=daily;;issn=1234-" + i + ";;language=Vietnamese";
                 ps.setString(8, extra);
+                ps.setString(9, "NEWS" + String.format("%06d", i));
+                ps.setString(10, ImageUtils.getProductImagePathAlways(productId));
                 ps.executeUpdate();
+                productId++;
             }
 
             // add 12 CDs
@@ -96,7 +120,10 @@ public class Database {
                 ps.setString(7, "Music album.");
                 String extra = "album=Album " + i + ";;artist=Artist " + i + ";;recordLabel=Label " + i + ";;genre=Pop;;releaseDate=2019-05-0" + ((i%9)+1);
                 ps.setString(8, extra);
+                ps.setString(9, "CD" + String.format("%06d", i));
+                ps.setString(10, ImageUtils.getProductImagePathAlways(productId));
                 ps.executeUpdate();
+                productId++;
             }
 
             // add 13 DVDs
@@ -110,7 +137,10 @@ public class Database {
                 ps.setString(7, "A movie.");
                 String extra = "discType=Blu-ray;;director=Director " + i + ";;runtime=120min;;studio=Studio " + i + ";;language=English;;subtitles=Vietnamese;;releaseDate=2018-0" + ((i%9)+1);
                 ps.setString(8, extra);
+                ps.setString(9, "DVD" + String.format("%06d", i));
+                ps.setString(10, ImageUtils.getProductImagePathAlways(productId));
                 ps.executeUpdate();
+                productId++;
             }
         }
     }
@@ -157,7 +187,7 @@ public class Database {
     }
 
     public static List<Product> getProducts(int offset, int limit) {
-        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra FROM products ORDER BY id LIMIT ? OFFSET ?", 
+        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products ORDER BY id LIMIT ? OFFSET ?", 
                             stmt -> {
                                 stmt.setInt(1, limit);
                                 stmt.setInt(2, offset);
@@ -172,12 +202,65 @@ public class Database {
      * @return List of matching products
      */
     public static List<Product> searchProducts(String searchTerm, int offset, int limit) {
-        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra FROM products WHERE LOWER(title) LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE LOWER(title) LIKE ? ORDER BY id LIMIT ? OFFSET ?",
                             stmt -> {
                                 stmt.setString(1, "%" + searchTerm.toLowerCase() + "%");
                                 stmt.setInt(2, limit);
                                 stmt.setInt(3, offset);
                             });
+    }
+    
+    /**
+     * Search and filter products with multiple criteria
+     * @param searchTerm Search term for title (can be empty)
+     * @param category Product category/type (can be null for all)
+     * @param minPrice Minimum price (can be null)
+     * @param maxPrice Maximum price (can be null)
+     * @param offset Starting offset
+     * @param limit Maximum number of results
+     * @return List of matching products
+     */
+    public static List<Product> searchProductsWithFilters(String searchTerm, String category, Double minPrice, Double maxPrice, int offset, int limit) {
+        StringBuilder sql = new StringBuilder("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        int paramIndex = 1;
+        
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND LOWER(title) LIKE ?");
+            params.add("%" + searchTerm.toLowerCase() + "%");
+        }
+        
+        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("all")) {
+            sql.append(" AND LOWER(type) = ?");
+            params.add(category.toLowerCase());
+        }
+        
+        if (minPrice != null) {
+            sql.append(" AND currentPrice >= ?");
+            params.add(minPrice);
+        }
+        
+        if (maxPrice != null) {
+            sql.append(" AND currentPrice <= ?");
+            params.add(maxPrice);
+        }
+        
+        sql.append(" ORDER BY id LIMIT ? OFFSET ?");
+        params.add(limit);
+        params.add(offset);
+        
+        return queryProducts(sql.toString(), stmt -> {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    stmt.setString(i + 1, (String) param);
+                } else if (param instanceof Double) {
+                    stmt.setDouble(i + 1, (Double) param);
+                } else if (param instanceof Integer) {
+                    stmt.setInt(i + 1, (Integer) param);
+                }
+            }
+        });
     }
     
     /**
@@ -189,6 +272,54 @@ public class Database {
         String q = "SELECT COUNT(*) FROM products WHERE LOWER(title) LIKE ?";
         try (Connection conn = DriverManager.getConnection(URL); PreparedStatement ps = conn.prepareStatement(q)) {
             ps.setString(1, "%" + searchTerm.toLowerCase() + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+        return 0;
+    }
+    
+    /**
+     * Count products matching filter criteria
+     * @param searchTerm Search term for title (can be empty)
+     * @param category Product category/type (can be null for all)
+     * @param minPrice Minimum price (can be null)
+     * @param maxPrice Maximum price (can be null)
+     * @return Count of matching products
+     */
+    public static int countFilteredResults(String searchTerm, String category, Double minPrice, Double maxPrice) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM products WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND LOWER(title) LIKE ?");
+            params.add("%" + searchTerm.toLowerCase() + "%");
+        }
+        
+        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("all")) {
+            sql.append(" AND LOWER(type) = ?");
+            params.add(category.toLowerCase());
+        }
+        
+        if (minPrice != null) {
+            sql.append(" AND currentPrice >= ?");
+            params.add(minPrice);
+        }
+        
+        if (maxPrice != null) {
+            sql.append(" AND currentPrice <= ?");
+            params.add(maxPrice);
+        }
+        
+        try (Connection conn = DriverManager.getConnection(URL); PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    ps.setString(i + 1, (String) param);
+                } else if (param instanceof Double) {
+                    ps.setDouble(i + 1, (Double) param);
+                }
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }
@@ -214,6 +345,13 @@ public class Database {
                     String dimension = rs.getString("dimension");
                     String desc = rs.getString("description");
                     String extra = rs.getString("extra");
+                    String barcode = rs.getString("barcode");
+                    String imagePath = rs.getString("imagePath");
+                    
+                    // If imagePath is null or empty, generate it from product ID
+                    if (imagePath == null || imagePath.isEmpty()) {
+                        imagePath = ImageUtils.getProductImagePathAlways(id);
+                    }
 
                     Map<String,String> m = parseExtra(extra);
 
@@ -225,6 +363,8 @@ public class Database {
                             if (m.containsKey("numberOfPages")) try { b.setNumberOfPages(Integer.parseInt(m.get("numberOfPages"))); } catch (Exception ignored) {}
                             b.setLanguage(m.getOrDefault("language", ""));
                             b.setGenre(m.getOrDefault("genre",""));
+                            b.setBarcode(barcode);
+                            b.setImagePath(imagePath);
                             p = b; break;
                         }
                         case "newspaper": {
@@ -235,6 +375,8 @@ public class Database {
                             n.setIssn(m.getOrDefault("issn",""));
                             n.setLanguage(m.getOrDefault("language",""));
                             n.setSections(m.getOrDefault("sections",""));
+                            n.setBarcode(barcode);
+                            n.setImagePath(imagePath);
                             p = n; break;
                         }
                         case "cd": {
@@ -243,6 +385,8 @@ public class Database {
                             c.setGenre(m.getOrDefault("genre",""));
                             c.setReleaseDate(m.getOrDefault("releaseDate",""));
                             if (m.containsKey("trackList")) c.setTrackList(Arrays.asList(m.get("trackList").split("\\|")));
+                            c.setBarcode(barcode);
+                            c.setImagePath(imagePath);
                             p = c; break;
                         }
                         case "dvd": {
@@ -254,10 +398,12 @@ public class Database {
                             d.setSubtitles(m.getOrDefault("subtitles",""));
                             d.setReleaseDate(m.getOrDefault("releaseDate",""));
                             d.setGenre(m.getOrDefault("genre",""));
+                            d.setBarcode(barcode);
+                            d.setImagePath(imagePath);
                             p = d; break;
                         }
                         default: {
-                            Product prod = new Product(id, title, original, current, weight, dimension, desc);
+                            Product prod = new Product(id, title, original, current, weight, dimension, desc, barcode, imagePath);
                             p = prod; break;
                         }
                     }

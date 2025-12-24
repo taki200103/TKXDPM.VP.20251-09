@@ -7,25 +7,51 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.hust.soict.aims.utils.RoundedPanel;
+import com.hust.soict.aims.utils.RoundedButton;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
-public class ProductSearchPanel extends JPanel {
+public class ProductSearchPanel extends RoundedPanel {
     private JTextField searchField;
+    private JComboBox<String> categoryComboBox;
+    private JComboBox<String> priceRangeComboBox;
+    private JButton searchButton;
     private JButton clearButton;
     
     private final List<SearchListener> listeners = new ArrayList<>();
+    
+    // Price ranges in VND
+    private static final String[] PRICE_RANGES = {
+        "Tất cả",
+        "< 100.000 VND",
+        "100.000 - 200.000 VND",
+        "200.000 - 300.000 VND",
+        "300.000 - 500.000 VND",
+        "> 500.000 VND"
+    };
+    
+    private static final String[] CATEGORIES = {
+        "Tất cả",
+        "Book",
+        "CD",
+        "DVD",
+        "Newspaper"
+    };
     
     /**
      * Listener interface for search events
      */
     public interface SearchListener {
-        void onSearchChanged(String searchTerm);
+        void onSearchChanged(String searchTerm, String category, Double minPrice, Double maxPrice);
     }
     
     /**
      * Constructor
      */
     public ProductSearchPanel() {
+        super(10, false); // Rounded corners without shadow
+        setBackground(BACKGROUND_WHITE);
+        setBorder(BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM));
         setupUI();
         bindEvents();
     }
@@ -34,31 +60,78 @@ public class ProductSearchPanel extends JPanel {
      * Setup the UI components
      */
     private void setupUI() {
-        setLayout(new FlowLayout(FlowLayout.LEFT, SPACING_SMALL, SPACING_SMALL));
-        setBackground(BACKGROUND_LIGHT);
+        setLayout(new BorderLayout(SPACING_SMALL, SPACING_SMALL));
         
-        // Search label
-        JLabel searchLabel = new JLabel("Search:");
+        // Top row: Search field and Clear button
+        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.LEFT, SPACING_SMALL, SPACING_SMALL));
+        topRow.setOpaque(false);
+        
+        JLabel searchLabel = new JLabel("Tìm kiếm:");
         searchLabel.setFont(FONT_BODY);
+        searchLabel.setForeground(TEXT_PRIMARY);
         
-        // Search field
         searchField = new JTextField();
         searchField.setFont(FONT_BODY);
-        searchField.setPreferredSize(new Dimension(815, 35));
-        searchField.setToolTipText("Enter product name and press Enter to search");
+        searchField.setPreferredSize(new Dimension(400, 38));
+        searchField.setToolTipText("Nhập tên sản phẩm để tìm kiếm");
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+            BorderFactory.createEmptyBorder(8, 12, 8, 12)
+        ));
         
-        // Clear button
-        clearButton = new JButton("Clear");
+        // Search button (blue) with rounded corners
+        searchButton = new RoundedButton("Tìm kiếm", 8);
+        searchButton.setFont(FONT_BUTTON);
+        searchButton.setBackground(PRIMARY_COLOR);
+        searchButton.setForeground(TEXT_ON_PRIMARY);
+        searchButton.setCursor(CURSOR_HAND);
+        searchButton.setPreferredSize(new Dimension(110, 38));
+        
+        topRow.add(searchLabel);
+        topRow.add(searchField);
+        topRow.add(searchButton);
+        
+        // Bottom row: Category and Price filters
+        JPanel bottomRow = new JPanel(new FlowLayout(FlowLayout.LEFT, SPACING_SMALL, SPACING_SMALL));
+        bottomRow.setOpaque(false);
+        
+        JLabel categoryLabel = new JLabel("Danh mục:");
+        categoryLabel.setFont(FONT_BODY);
+        categoryLabel.setForeground(TEXT_PRIMARY);
+        
+        categoryComboBox = new JComboBox<>(CATEGORIES);
+        categoryComboBox.setFont(FONT_BODY);
+        categoryComboBox.setPreferredSize(new Dimension(160, 38));
+        categoryComboBox.setToolTipText("Chọn danh mục sản phẩm");
+        
+        JLabel priceLabel = new JLabel("Khoảng giá:");
+        priceLabel.setFont(FONT_BODY);
+        priceLabel.setForeground(TEXT_PRIMARY);
+        
+        priceRangeComboBox = new JComboBox<>(PRICE_RANGES);
+        priceRangeComboBox.setFont(FONT_BODY);
+        priceRangeComboBox.setPreferredSize(new Dimension(220, 38));
+        priceRangeComboBox.setToolTipText("Chọn khoảng giá");
+        
+        // Clear button (moved to bottom row) with rounded corners
+        clearButton = new RoundedButton("Xóa", 8);
         clearButton.setFont(FONT_BUTTON);
         clearButton.setBackground(BACKGROUND_GRAY);
-        clearButton.setFocusPainted(false);
+        clearButton.setForeground(TEXT_PRIMARY);
         clearButton.setCursor(CURSOR_HAND);
-        clearButton.setPreferredSize(new Dimension(80, 35));
+        clearButton.setPreferredSize(new Dimension(90, 38));
         
-        // Add components
-        add(searchLabel);
-        add(searchField);
-        add(clearButton);
+        bottomRow.add(categoryLabel);
+        bottomRow.add(categoryComboBox);
+        bottomRow.add(Box.createHorizontalStrut(SPACING_MEDIUM));
+        bottomRow.add(priceLabel);
+        bottomRow.add(priceRangeComboBox);
+        bottomRow.add(Box.createHorizontalStrut(SPACING_MEDIUM));
+        bottomRow.add(clearButton);
+        
+        // Add rows to main panel
+        add(topRow, BorderLayout.NORTH);
+        add(bottomRow, BorderLayout.CENTER);
     }
     
     /**
@@ -68,11 +141,22 @@ public class ProductSearchPanel extends JPanel {
         // Enter key in search field
         searchField.addActionListener(e -> performSearch());
         
+        // Search button
+        searchButton.addActionListener(e -> performSearch());
+        
         // Clear button
         clearButton.addActionListener(e -> {
             searchField.setText("");
+            categoryComboBox.setSelectedIndex(0);
+            priceRangeComboBox.setSelectedIndex(0);
             performSearch();
         });
+        
+        // Category filter change
+        categoryComboBox.addActionListener(e -> performSearch());
+        
+        // Price range filter change
+        priceRangeComboBox.addActionListener(e -> performSearch());
         
         // Real-time search (optional - search as user types)
         searchField.getDocument().addDocumentListener(new DocumentListener() {
@@ -100,7 +184,34 @@ public class ProductSearchPanel extends JPanel {
      */
     private void performSearch() {
         String searchTerm = searchField.getText().trim();
-        notifySearchChanged(searchTerm);
+        String category = (String) categoryComboBox.getSelectedItem();
+        if (category != null && category.equals("Tất cả")) {
+            category = null;
+        }
+        
+        // Parse price range
+        String priceRange = (String) priceRangeComboBox.getSelectedItem();
+        Double minPrice = null;
+        Double maxPrice = null;
+        
+        if (priceRange != null && !priceRange.equals("Tất cả")) {
+            if (priceRange.equals("< 100.000 VND")) {
+                maxPrice = 100000.0;
+            } else if (priceRange.equals("100.000 - 200.000 VND")) {
+                minPrice = 100000.0;
+                maxPrice = 200000.0;
+            } else if (priceRange.equals("200.000 - 300.000 VND")) {
+                minPrice = 200000.0;
+                maxPrice = 300000.0;
+            } else if (priceRange.equals("300.000 - 500.000 VND")) {
+                minPrice = 300000.0;
+                maxPrice = 500000.0;
+            } else if (priceRange.equals("> 500.000 VND")) {
+                minPrice = 500000.0;
+            }
+        }
+        
+        notifySearchChanged(searchTerm, category, minPrice, maxPrice);
     }
     
     /**
@@ -111,6 +222,42 @@ public class ProductSearchPanel extends JPanel {
     }
     
     /**
+     * Get current category filter
+     */
+    public String getCategory() {
+        String category = (String) categoryComboBox.getSelectedItem();
+        return (category != null && !category.equals("Tất cả")) ? category : null;
+    }
+    
+    /**
+     * Get current price range
+     */
+    public Double[] getPriceRange() {
+        String priceRange = (String) priceRangeComboBox.getSelectedItem();
+        Double minPrice = null;
+        Double maxPrice = null;
+        
+        if (priceRange != null && !priceRange.equals("Tất cả")) {
+            if (priceRange.equals("< 100.000 VND")) {
+                maxPrice = 100000.0;
+            } else if (priceRange.equals("100.000 - 200.000 VND")) {
+                minPrice = 100000.0;
+                maxPrice = 200000.0;
+            } else if (priceRange.equals("200.000 - 300.000 VND")) {
+                minPrice = 200000.0;
+                maxPrice = 300000.0;
+            } else if (priceRange.equals("300.000 - 500.000 VND")) {
+                minPrice = 300000.0;
+                maxPrice = 500000.0;
+            } else if (priceRange.equals("> 500.000 VND")) {
+                minPrice = 500000.0;
+            }
+        }
+        
+        return new Double[]{minPrice, maxPrice};
+    }
+    
+    /**
      * Set search term programmatically
      */
     public void setSearchTerm(String term) {
@@ -118,10 +265,12 @@ public class ProductSearchPanel extends JPanel {
     }
     
     /**
-     * Clear search field
+     * Clear search field and filters
      */
     public void clear() {
         searchField.setText("");
+        categoryComboBox.setSelectedIndex(0);
+        priceRangeComboBox.setSelectedIndex(0);
     }
     
     /**
@@ -141,9 +290,9 @@ public class ProductSearchPanel extends JPanel {
     /**
      * Notify all listeners that search term has changed
      */
-    private void notifySearchChanged(String searchTerm) {
+    private void notifySearchChanged(String searchTerm, String category, Double minPrice, Double maxPrice) {
         for (SearchListener listener : listeners) {
-            listener.onSearchChanged(searchTerm);
+            listener.onSearchChanged(searchTerm, category, minPrice, maxPrice);
         }
     }
     

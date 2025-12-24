@@ -8,6 +8,8 @@ public class Product {
     protected double weight;
     protected String dimension;
     protected String description;
+    protected String barcode;
+    protected String imagePath;
 
     public Product() {}
 
@@ -19,6 +21,20 @@ public class Product {
         this.weight = weight;
         this.dimension = dimension;
         this.description = description;
+        this.barcode = String.valueOf(id); // Default barcode is the product ID
+        this.imagePath = null;
+    }
+    
+    public Product(long id, String title, double originalValue, double currentPrice, double weight, String dimension, String description, String barcode, String imagePath) {
+        this.id = id;
+        this.title = title;
+        this.originalValue = originalValue;
+        this.currentPrice = currentPrice;
+        this.weight = weight;
+        this.dimension = dimension;
+        this.description = description;
+        this.barcode = barcode != null ? barcode : String.valueOf(id);
+        this.imagePath = imagePath;
     }
 
     public long getId() { return id; }
@@ -35,6 +51,10 @@ public class Product {
     public void setDimension(String dimension) { this.dimension = dimension; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public String getBarcode() { return barcode; }
+    public void setBarcode(String barcode) { this.barcode = barcode; }
+    public String getImagePath() { return imagePath; }
+    public void setImagePath(String imagePath) { this.imagePath = imagePath; }
 
     public String getType() { return "product"; }
 
