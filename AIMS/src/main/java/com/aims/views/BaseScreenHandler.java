@@ -6,7 +6,7 @@ import java.util.Hashtable;
 import com.aims.controller.BaseController;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
-
+import com.aims.views.home.HomeForm;
 public class BaseScreenHandler extends FXMLForm {
 
     private Scene scene;
@@ -14,7 +14,7 @@ public class BaseScreenHandler extends FXMLForm {
     protected final Stage stage;
     protected Hashtable<String, String> messages;
     private BaseController bController;
-
+    protected HomeForm homeScreenHandler;
     public BaseScreenHandler(String screenPath) throws IOException {
         super(screenPath);
         this.stage = new Stage();
@@ -24,7 +24,9 @@ public class BaseScreenHandler extends FXMLForm {
         super(screenPath);
         this.stage = stage;
     }
-
+    public void setHomeScreenHandler(HomeForm homeScreenHandler) {
+        this.homeScreenHandler = homeScreenHandler;
+    }
     public void setPreviousScreen(BaseScreenHandler prev) {
         this.prev = prev;
     }

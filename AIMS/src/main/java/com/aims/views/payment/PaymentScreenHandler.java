@@ -95,28 +95,26 @@ public class PaymentScreenHandler extends BaseScreenHandler {
      * Xử lý chuyển màn hình khi thành công
      */
     private void onPaymentSuccess(int amount, String contents) {
-        try {
-            LOGGER.info("Giao dịch thành công! Đang chuyển sang màn hình Result...");
+        Platform.runLater(() -> {
+            try {
+                // 1. Khởi tạo handler và nạp file FXML từ resources
+                ResultScreenHandler resultScreen = new ResultScreenHandler(this.stage, Configs.RESULT_SCREEN_PATH);
 
-            // Đường dẫn tới file FXML kết quả (đảm bảo file này tồn tại trong Configs)
-            // Thường là "assets/fxml/result.fxml"
-            String resultScreenPath = Configs.RESULT_SCREEN_PATH;
+                // 2. Thiết lập các thông tin liên kết màn hình
+                resultScreen.setHomeScreenHandler(this.homeScreenHandler);
+                resultScreen.setScreenTitle("Kết quả thanh toán");
 
-            ResultScreenHandler resultScreen = new ResultScreenHandler(this.stage, resultScreenPath);
-            resultScreen.setPreviousScreen(this);
-            resultScreen.setHomeScreenHandler(this.homeScreenHandler);
-            resultScreen.setScreenTitle("Kết quả thanh toán");
+                // 3. Hiển thị stage lên trước để các biến @FXML được khởi tạo (Inject)
+                resultScreen.show();
 
-            // Gọi hàm hiển thị kết quả (giả sử ResultScreenHandler có hàm này)
-            // Nếu ResultScreenHandler của bạn khác, hãy điều chỉnh dòng này
-            // resultScreen.showResult("PAYMENT SUCCESS");
+                // 4. Cuối cùng mới gọi hàm đổ dữ liệu vào các Label
+                // Nếu gọi trước khi show(), resultLabel có thể bị null gây trắng màn hình
+                resultScreen.showResult("PAYMENT SUCCESS");
 
-            resultScreen.show();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("Lỗi chuyển màn hình kết quả: " + e.getMessage());
-        }
+            } catch (IOException e) {
+                LOGGER.severe("Lỗi nạp màn hình kết quả: " + e.getMessage());
+            }
+        });
     }
 
     private void openBrowser(String url) {
