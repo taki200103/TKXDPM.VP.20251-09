@@ -39,8 +39,8 @@ public class ProductManagementScreen extends BaseScreenHandler {
 
     @Override
     protected void initComponents() {
-        // Initialize table model with Actions column
-        String[] columnNames = { "ID", "Type", "Title", "Price (VND)", "Weight (kg)", "Stock", "Actions" };
+        // Initialize table model with Actions column (ID column hidden)
+        String[] columnNames = { "Type", "Title", "Price (VND)", "Weight (kg)", "Stock", "Status", "Actions" };
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -65,13 +65,13 @@ public class ProductManagementScreen extends BaseScreenHandler {
         productTable.getTableHeader().setBackground(PRIMARY_COLOR);
         productTable.getTableHeader().setForeground(TEXT_ON_PRIMARY);
         
-        // Set column widths
-        productTable.getColumnModel().getColumn(0).setPreferredWidth(60);  // ID
-        productTable.getColumnModel().getColumn(1).setPreferredWidth(80);   // Type
-        productTable.getColumnModel().getColumn(2).setPreferredWidth(200);   // Title
-        productTable.getColumnModel().getColumn(3).setPreferredWidth(120);   // Price
-        productTable.getColumnModel().getColumn(4).setPreferredWidth(100);   // Weight
-        productTable.getColumnModel().getColumn(5).setPreferredWidth(80);    // Stock
+        // Set column widths (ID column is hidden)
+        productTable.getColumnModel().getColumn(0).setPreferredWidth(80);   // Type
+        productTable.getColumnModel().getColumn(1).setPreferredWidth(200);   // Title
+        productTable.getColumnModel().getColumn(2).setPreferredWidth(120);   // Price
+        productTable.getColumnModel().getColumn(3).setPreferredWidth(100);   // Weight
+        productTable.getColumnModel().getColumn(4).setPreferredWidth(80);    // Stock
+        productTable.getColumnModel().getColumn(5).setPreferredWidth(100);   // Status
         productTable.getColumnModel().getColumn(6).setPreferredWidth(150);   // Actions
         
         // Set renderer and editor for Actions column
@@ -187,30 +187,33 @@ public class ProductManagementScreen extends BaseScreenHandler {
         boolean hasFilters = !currentSearchTerm.isEmpty() || currentCategory != null;
         
         if (!hasFilters) {
-            // Load all products
-            int total = productController.countProducts();
-            for (int i = 0; i < total; i += productController.getPageSize()) {
-                List<Product> pageProducts = productController.getPage(i / productController.getPageSize());
+            // Load all products (including deactivated) for management
+            int total = Database.countAllProductsForManagement();
+            int pageSize = productController.getPageSize();
+            for (int i = 0; i < total; i += pageSize) {
+                List<Product> pageProducts = Database.getAllProductsForManagement(i, pageSize);
                 for (Product product : pageProducts) {
                     addProductToTable(product);
                 }
             }
         } else {
-            // Use filtered search - load all pages
+            // Use filtered search - load all pages (including deactivated)
             int pageIndex = 0;
+            int pageSize = productController.getPageSize();
             do {
-                products = productController.searchProductsWithFilters(
+                products = Database.searchProductsWithFiltersForManagement(
                     currentSearchTerm.isEmpty() ? null : currentSearchTerm,
                     currentCategory,
                     null, // minPrice
                     null, // maxPrice
-                    pageIndex
+                    pageIndex * pageSize,
+                    pageSize
                 );
                 for (Product product : products) {
                     addProductToTable(product);
                 }
                 pageIndex++;
-            } while (!products.isEmpty() && products.size() >= productController.getPageSize());
+            } while (!products.isEmpty() && products.size() >= pageSize);
         }
 
         productTable.revalidate();
@@ -225,16 +228,27 @@ public class ProductManagementScreen extends BaseScreenHandler {
         // Create action buttons panel
         JPanel actionPanel = createActionButtonsPanel(product.getId());
 
+        // Get status display text
+        String statusText = product.getStatus() != null ? product.getStatus() : "active";
+        // Capitalize first letter
+        statusText = statusText.substring(0, 1).toUpperCase() + statusText.substring(1);
+
+        // Store productId as hidden data - we'll use it for buttons
+        // Note: ID is not displayed but we need it for actions
         Object[] row = {
-                product.getId(),
                 product.getType(),
                 product.getTitle(),
                 df.format((long) product.getCurrentPrice()),
                 String.format("%.2f", product.getWeight()),
                 Database.getStock(product.getId()),
+                statusText,
                 actionPanel
         };
         tableModel.addRow(row);
+        
+        // Store productId in the row for later retrieval
+        // We'll use a custom approach: store it in the actionPanel's client property
+        actionPanel.putClientProperty("productId", product.getId());
     }
     
     /**
@@ -278,14 +292,26 @@ public class ProductManagementScreen extends BaseScreenHandler {
     private class ButtonPanelRenderer extends JPanel implements TableCellRenderer {
         public ButtonPanelRenderer() {
             setOpaque(true);
+            setLayout(new FlowLayout(FlowLayout.CENTER, 5, 0));
         }
         
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
+            removeAll();
+            // Get productId from the Actions column value (JPanel with client property)
             if (value instanceof JPanel) {
-                removeAll();
-                add((JPanel) value);
+                JPanel actionPanel = (JPanel) value;
+                Object productIdObj = actionPanel.getClientProperty("productId");
+                if (productIdObj instanceof Long || productIdObj instanceof Integer || productIdObj instanceof Number) {
+                    long productId = ((Number) productIdObj).longValue();
+                    // Create new buttons panel for this row
+                    JPanel buttonsPanel = createActionButtonsPanel(productId);
+                    // Add all components from the buttons panel
+                    for (Component comp : buttonsPanel.getComponents()) {
+                        add(comp);
+                    }
+                }
             }
             setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
             return this;
@@ -297,18 +323,30 @@ public class ProductManagementScreen extends BaseScreenHandler {
      */
     private class ButtonPanelEditor extends AbstractCellEditor implements TableCellEditor {
         private JPanel panel;
+        private long currentProductId;
         
         public ButtonPanelEditor() {
-            panel = new JPanel();
+            panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
             panel.setOpaque(true);
         }
         
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int column) {
+            panel.removeAll();
+            // Get productId from the Actions column value (JPanel with client property)
             if (value instanceof JPanel) {
-                panel.removeAll();
-                panel.add((JPanel) value);
+                JPanel actionPanel = (JPanel) value;
+                Object productIdObj = actionPanel.getClientProperty("productId");
+                if (productIdObj instanceof Long || productIdObj instanceof Integer || productIdObj instanceof Number) {
+                    currentProductId = ((Number) productIdObj).longValue();
+                    // Create new buttons panel for this row
+                    JPanel buttonsPanel = createActionButtonsPanel(currentProductId);
+                    // Add all components from the buttons panel
+                    for (Component comp : buttonsPanel.getComponents()) {
+                        panel.add(comp);
+                    }
+                }
             }
             panel.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
             return panel;
@@ -316,7 +354,10 @@ public class ProductManagementScreen extends BaseScreenHandler {
         
         @Override
         public Object getCellEditorValue() {
-            return panel;
+            // Return a new JPanel with productId to preserve the value in the table model
+            JPanel resultPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+            resultPanel.putClientProperty("productId", currentProductId);
+            return resultPanel;
         }
     }
 
@@ -350,6 +391,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
         }
         
         String productTitle = product.getTitle();
+        int stock = Database.getStock(productId);
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete:\n" + productTitle + "?",
@@ -358,17 +400,34 @@ public class ProductManagementScreen extends BaseScreenHandler {
                 JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            if (Database.deleteProduct(productId)) {
-                JOptionPane.showMessageDialog(this,
-                        "Product deleted successfully",
-                        "Success",
-                        JOptionPane.INFORMATION_MESSAGE);
-                refresh();
+            if (stock > 0) {
+                // Stock > 0: only deactivate
+                if (Database.deleteProduct(productId)) {
+                    JOptionPane.showMessageDialog(this,
+                            "Product cannot be deleted because stock > 0.\nStatus changed to 'Deactivated'.",
+                            "Product Deactivated",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                            "Failed to deactivate product",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
             } else {
-                JOptionPane.showMessageDialog(this,
-                        "Failed to delete product",
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
+                // Stock = 0: delete
+                if (Database.deleteProduct(productId)) {
+                    JOptionPane.showMessageDialog(this,
+                            "Product deleted successfully",
+                            "Success",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    refresh();
+                } else {
+                    JOptionPane.showMessageDialog(this,
+                            "Failed to delete product",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }

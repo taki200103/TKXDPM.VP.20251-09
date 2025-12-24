@@ -1,6 +1,10 @@
 package com.hust.soict.aims.utils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 
 /**
  * Utility class for handling product images and common images
@@ -92,5 +96,45 @@ public class ImageUtils {
      */
     public static String getCommonImagesFolder() {
         return COMMON_IMAGES_FOLDER;
+    }
+    
+    /**
+     * Save an image file to the products folder with the specified product ID
+     * @param sourceFile Source image file to copy
+     * @param productId Product ID to use as filename
+     * @return true if successful, false otherwise
+     */
+    public static boolean saveProductImage(File sourceFile, long productId) {
+        if (sourceFile == null || !sourceFile.exists()) {
+            return false;
+        }
+        
+        try {
+            // Ensure the images folder exists
+            File imagesFolder = new File(IMAGES_FOLDER);
+            if (!imagesFolder.exists()) {
+                imagesFolder.mkdirs();
+            }
+            
+            // Create target file path
+            String targetPath = getProductImagePathAlways(productId);
+            File targetFile = new File(targetPath);
+            
+            // Copy the source file to target location
+            try (FileInputStream fis = new FileInputStream(sourceFile);
+                 FileOutputStream fos = new FileOutputStream(targetFile)) {
+                
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                }
+            }
+            
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }

@@ -30,7 +30,7 @@ public class CartScreen extends BaseScreenHandler {
         itemsPanel = createItemsPanel();
 
         totalItemsLabel = createLabel("Total Items: 0", FONT_BODY);
-        subtotalLabel = createLabel("Subtotal: $0.00", FONT_HEADER, INFO_COLOR);
+        subtotalLabel = createLabel("Subtotal: 0 VNĐ", FONT_HEADER, INFO_COLOR);
 
         placeOrderButton = createPlaceOrderButton();
     }
@@ -169,6 +169,22 @@ public class CartScreen extends BaseScreenHandler {
             return;
         }
 
+        for (CartItem item : cartController.getItems()) {
+            int orderedQty = item.getQuantity();
+            int stockQty = item.getProduct().getQuantity();
+
+            if (orderedQty > stockQty) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Product \"" + item.getProduct().getTitle() + "\" only has "
+                                + stockQty + " item(s) left in stock.\n"
+                                + "Please adjust the quantity.",
+                        "Insufficient Stock",
+                        JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+
         navigateTo(new DeliveryInfoScreen(
                 this,
                 cartController,
@@ -179,7 +195,7 @@ public class CartScreen extends BaseScreenHandler {
         totalItemsLabel.setText(
                 "Total Items: " + cartController.getTotalQuantity());
         subtotalLabel.setText(
-                String.format("Subtotal: $%.2f", cartController.getSubtotal()));
+                String.format("Subtotal: %.0f VNĐ", cartController.getSubtotal()));
     }
 
     private void updateActionState() {

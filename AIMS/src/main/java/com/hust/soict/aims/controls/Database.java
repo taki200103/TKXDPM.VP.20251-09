@@ -392,7 +392,7 @@ public class Database {
     }
     
     private static void insertBook(Connection conn, long mediaId, Map<String, String> extra) throws SQLException {
-        String sql = "INSERT INTO Book (media_id, author, cover_type, publisher, publish_date, number_of_page, language, genre) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Book (media_id, author, cover_type, publisher, publish_date, number_of_page, language, book_category, genre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, mediaId);
             ps.setString(2, extra.getOrDefault("author", null));
@@ -410,7 +410,8 @@ public class Database {
                 ps.setNull(6, Types.INTEGER);
             }
             ps.setString(7, extra.getOrDefault("language", null));
-            ps.setString(8, extra.getOrDefault("genre", null));
+            ps.setString(8, extra.getOrDefault("bookCategory", null));
+            ps.setString(9, extra.getOrDefault("genre", null));
             ps.executeUpdate();
         }
     }
@@ -713,7 +714,7 @@ public class Database {
         }
         
         // Fallback to products
-        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products ORDER BY id LIMIT ? OFFSET ?", 
+        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products ORDER BY id DESC LIMIT ? OFFSET ?", 
                             stmt -> {
                                 stmt.setInt(1, limit);
                                 stmt.setInt(2, offset);
@@ -728,7 +729,7 @@ public class Database {
         String sql = "SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
                      "FROM Media m " +
                      "WHERE m.status = 'active' " +
-                     "ORDER BY m.media_id LIMIT ? OFFSET ?";
+                     "ORDER BY m.created_at DESC LIMIT ? OFFSET ?";
         try (Connection conn = DriverManager.getConnection(URL); 
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, limit);
@@ -743,6 +744,105 @@ public class Database {
             e.printStackTrace();
         }
         return list;
+    }
+    
+    /**
+     * Query all products from Media table (including deactivated) for management screen
+     */
+    public static List<Product> getAllProductsForManagement(int offset, int limit) {
+        List<Product> list = new ArrayList<>();
+        String sql = "SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
+                     "FROM Media m " +
+                     "ORDER BY m.created_at DESC LIMIT ? OFFSET ?";
+        try (Connection conn = DriverManager.getConnection(URL); 
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Product p = mapMediaToProduct(conn, rs);
+                    if (p != null) list.add(p);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+    
+    /**
+     * Search all products with filters (including deactivated) for management screen
+     */
+    public static List<Product> searchProductsWithFiltersForManagement(String searchTerm, String category, Double minPrice, Double maxPrice, int offset, int limit) {
+        List<Product> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
+                     "FROM Media m WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        
+        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
+            sql.append(" AND LOWER(m.title) LIKE ?");
+            params.add("%" + searchTerm.toLowerCase() + "%");
+        }
+        
+        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("all")) {
+            sql.append(" AND LOWER(m.category) = ?");
+            params.add(category.toLowerCase());
+        }
+        
+        if (minPrice != null) {
+            sql.append(" AND m.price >= ?");
+            params.add(minPrice);
+        }
+        
+        if (maxPrice != null) {
+            sql.append(" AND m.price <= ?");
+            params.add(maxPrice);
+        }
+        
+        sql.append(" ORDER BY m.created_at DESC LIMIT ? OFFSET ?");
+        params.add(limit);
+        params.add(offset);
+        
+        try (Connection conn = DriverManager.getConnection(URL); 
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                Object param = params.get(i);
+                if (param instanceof String) {
+                    ps.setString(i + 1, (String) param);
+                } else if (param instanceof Double) {
+                    ps.setDouble(i + 1, (Double) param);
+                } else if (param instanceof Integer) {
+                    ps.setInt(i + 1, (Integer) param);
+                }
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Product p = mapMediaToProduct(conn, rs);
+                    if (p != null) list.add(p);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+    
+    /**
+     * Count all products (including deactivated) for management screen
+     */
+    public static int countAllProductsForManagement() {
+        String q = "SELECT COUNT(*) FROM Media";
+        try (Connection conn = DriverManager.getConnection(URL); 
+             PreparedStatement ps = conn.prepareStatement(q)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
     
     /**
@@ -916,7 +1016,7 @@ public class Database {
         }
         
         // Fallback to products
-        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE LOWER(title) LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE LOWER(title) LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
                             stmt -> {
                                 stmt.setString(1, "%" + searchTerm.toLowerCase() + "%");
                                 stmt.setInt(2, limit);
@@ -953,7 +1053,7 @@ public class Database {
             params.add(maxPrice);
         }
         
-        sql.append(" ORDER BY m.media_id LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY m.created_at DESC LIMIT ? OFFSET ?");
         params.add(limit);
         params.add(offset);
         
@@ -1015,7 +1115,7 @@ public class Database {
             params.add(maxPrice);
         }
         
-        sql.append(" ORDER BY id LIMIT ? OFFSET ?");
+        sql.append(" ORDER BY id DESC LIMIT ? OFFSET ?");
         params.add(limit);
         params.add(offset);
         
@@ -1304,7 +1404,7 @@ public class Database {
                     ps.setString(4, product.getDescription());
                     ps.setDouble(5, product.getCurrentPrice());
                     ps.setDouble(6, product.getOriginalValue());
-                    ps.setInt(7, 10); // Default quantity
+                    ps.setInt(7, product.getQuantity()); // Use quantity from product
                     ps.setDouble(8, product.getWeight());
                     if (width != null) ps.setDouble(9, width);
                     else ps.setNull(9, Types.REAL);
@@ -1376,7 +1476,7 @@ public class Database {
                 }
                 
                 // Update Media
-                String sql = "UPDATE Media SET category=?, barcode=?, title=?, description=?, price=?, value=?, weight=?, width=?, height=?, length=?, image_url=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE media_id=?";
+                String sql = "UPDATE Media SET category=?, barcode=?, title=?, description=?, price=?, value=?, quantity=?, weight=?, width=?, height=?, length=?, condition=?, status=?, image_url=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE media_id=?";
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     // Normalize category to lowercase for consistency
                     ps.setString(1, product.getType() != null ? product.getType().toLowerCase() : null);
@@ -1385,17 +1485,20 @@ public class Database {
                     ps.setString(4, product.getDescription());
                     ps.setDouble(5, product.getCurrentPrice());
                     ps.setDouble(6, product.getOriginalValue());
-                    ps.setDouble(7, product.getWeight());
-                    if (width != null) ps.setDouble(8, width);
-                    else ps.setNull(8, Types.REAL);
-                    if (height != null) ps.setDouble(9, height);
+                    ps.setInt(7, product.getQuantity()); // Update quantity
+                    ps.setDouble(8, product.getWeight());
+                    if (width != null) ps.setDouble(9, width);
                     else ps.setNull(9, Types.REAL);
-                    if (length != null) ps.setDouble(10, length);
+                    if (height != null) ps.setDouble(10, height);
                     else ps.setNull(10, Types.REAL);
+                    if (length != null) ps.setDouble(11, length);
+                    else ps.setNull(11, Types.REAL);
+                    ps.setString(12, product.getCondition() != null ? product.getCondition() : "new");
+                    ps.setString(13, product.getStatus() != null ? product.getStatus() : "active");
                     String imagePath = product.getImagePath() != null ? product.getImagePath() : ImageUtils.getProductImagePathAlways(product.getId());
-                    ps.setString(11, imagePath);
-                    ps.setInt(12, managerUserId);
-                    ps.setLong(13, product.getId());
+                    ps.setString(14, imagePath);
+                    ps.setInt(15, managerUserId);
+                    ps.setLong(16, product.getId());
                     
                     int affected = ps.executeUpdate();
                     if (affected > 0) {
@@ -1417,12 +1520,46 @@ public class Database {
     }
     
     /**
+     * Update product status
+     */
+    public static boolean updateProductStatus(long productId, String status) {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            String sql = "UPDATE Media SET status=?, updated_at=CURRENT_TIMESTAMP WHERE media_id=?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, status);
+                ps.setLong(2, productId);
+                int affected = ps.executeUpdate();
+                return affected > 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
      * Delete a product by ID
+     * Only deletes if stock = 0, otherwise sets status to 'deactivated'
      */
     public static boolean deleteProduct(long productId) {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
             try {
+                // Check stock first
+                int stock = getStock(productId);
+                
+                if (stock > 0) {
+                    // If stock > 0, only deactivate the product
+                    if (updateProductStatus(productId, "deactivated")) {
+                        conn.commit();
+                        return true;
+                    } else {
+                        conn.rollback();
+                        return false;
+                    }
+                }
+                
+                // If stock = 0, proceed with deletion
                 // Delete from type-specific tables first
                 String[] typeTables = {"Book", "Newspaper", "CD", "DVD"};
                 for (String table : typeTables) {
@@ -1454,12 +1591,12 @@ public class Database {
     }
     
     /**
-     * Get a single product by ID
+     * Get a single product by ID (including deactivated products)
      */
     public static Product getProductById(long productId) {
-        // Try Media first
+        // Try Media first (without status filter to allow editing deactivated products)
         String sql = "SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
-                     "FROM Media m WHERE m.media_id = ? AND m.status = 'active'";
+                     "FROM Media m WHERE m.media_id = ?";
         try (Connection conn = DriverManager.getConnection(URL); 
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, productId);
@@ -1491,6 +1628,7 @@ public class Database {
                 "publicationDate", b.getPublicationDate() != null ? b.getPublicationDate() : "",
                 "numberOfPages", b.getNumberOfPages() != null ? String.valueOf(b.getNumberOfPages()) : "",
                 "language", b.getLanguage() != null ? b.getLanguage() : "",
+                "bookCategory", b.getBookCategory() != null ? b.getBookCategory() : "",
                 "genre", b.getGenre() != null ? b.getGenre() : ""
             ));
         } else if (product instanceof Newspaper) {

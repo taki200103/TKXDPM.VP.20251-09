@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.boundaries.customer.payment.PaymentScreen;
+import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.controls.PlaceOrderController;
 import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.entities.Invoice;
@@ -52,7 +53,7 @@ public class InvoiceScreen extends BaseScreenHandler {
         invoiceDetailsPanel.add(paymentSummaryPanel);
 
         // Pay button
-        payButton = new JButton("Proceed to Payment");
+        payButton = new RoundedButton("Proceed to Payment");
         payButton.setFont(FONT_BUTTON_LARGE);
         payButton.setBackground(PRIMARY_COLOR);
         payButton.setForeground(TEXT_ON_PRIMARY);
@@ -103,7 +104,6 @@ public class InvoiceScreen extends BaseScreenHandler {
         JLabel titleLabel = new JLabel("Invoice & Payment");
         titleLabel.setFont(FONT_TITLE);
         titleLabel.setForeground(TEXT_ON_PRIMARY);
-        titleLabel.setHorizontalAlignment(SwingConstants.CENTER);
         mainHeaderPanel.add(titleLabel, BorderLayout.CENTER);
 
         // Combine top navigation bar + main header

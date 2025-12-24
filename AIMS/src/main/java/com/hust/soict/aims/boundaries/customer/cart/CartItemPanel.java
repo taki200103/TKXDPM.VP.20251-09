@@ -8,6 +8,7 @@ import com.hust.soict.aims.entities.CartItem;
 import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.boundaries.ProductDetailScreen;
 import com.hust.soict.aims.components.ProductImagePanel;
+import com.hust.soict.aims.components.RoundedBorder;
 import com.hust.soict.aims.components.RoundedButton;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -16,15 +17,14 @@ import static com.hust.soict.aims.utils.UIConstant.*;
 public class CartItemPanel extends JPanel {
 
     private static final Dimension QTY_SIZE = new Dimension(60, 40);
-    private static final Dimension QTY_BUTTON = new Dimension(100, 40);
     private static final Dimension SUBTOTAL_SIZE = new Dimension(100, 40);
     private static final Dimension REMOVE_BUTTON = new Dimension(100, 40);
     private static final Color QTY_BG = new Color(245, 245, 245);
     private static final Color QTY_BORDER = new Color(220, 220, 220);
     private Product product;
     private int quantity;
-    private JLabel qtyLabel;
     private JLabel subtotalLabel;
+    private JSpinner qtySpinner;
     private ActionListener onQuantityChanged;
     private ActionListener onRemove;
 
@@ -76,7 +76,7 @@ public class CartItemPanel extends JPanel {
         name.setFont(FONT_PRODUCT_NAME);
 
         JLabel price = new JLabel(
-                String.format("Price: $%.2f", product.getCurrentPrice()));
+                String.format("Price: %.0f VND", product.getCurrentPrice()));
         price.setFont(FONT_SMALL);
         price.setForeground(TEXT_SECONDARY);
 
@@ -129,38 +129,62 @@ public class CartItemPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
         panel.setOpaque(false);
 
-        JButton left = createArrowButton("Decrease", -1);
-        JButton right = createArrowButton("Increase", 1);
-
-        qtyLabel = createQtyLabel();
-
-        panel.add(left);
-        panel.add(qtyLabel);
-        panel.add(right);
+        qtySpinner = createQtySpinner();
+        panel.add(qtySpinner);
 
         return panel;
     }
 
-    private JLabel createQtyLabel() {
-        JLabel label = new JLabel(String.valueOf(quantity), SwingConstants.CENTER);
-        label.setFont(FONT_BUTTON_LARGE);
-        label.setOpaque(true);
-        label.setBackground(QTY_BG);
-        label.setBorder(BorderFactory.createLineBorder(QTY_BORDER));
-        label.setPreferredSize(QTY_SIZE);
-        label.setMinimumSize(QTY_SIZE);
-        return label;
+    private JSpinner createQtySpinner() {
+        SpinnerNumberModel model = new SpinnerNumberModel(quantity, 1, 999, 1);
+
+        JSpinner spinner = new JSpinner(model);
+        spinner.setPreferredSize(QTY_SIZE);
+        spinner.setOpaque(false);
+
+        // ===== Editor =====
+        JSpinner.NumberEditor editor = new JSpinner.NumberEditor(spinner, "#");
+        spinner.setEditor(editor);
+
+        JTextField textField = editor.getTextField();
+        textField.setFont(FONT_BUTTON_LARGE);
+        textField.setHorizontalAlignment(JTextField.CENTER);
+        textField.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        textField.setBackground(QTY_BG);
+        textField.setForeground(TEXT_PRIMARY);
+        textField.setCaretColor(PRIMARY_COLOR);
+
+        // ===== Border bo góc =====
+        spinner.setBorder(new RoundedBorder(10, QTY_BORDER));
+
+        // ===== Remove ugly arrow buttons =====
+        for (Component c : spinner.getComponents()) {
+            if (c instanceof JButton btn) {
+                btn.setOpaque(false);
+                btn.setContentAreaFilled(false);
+                btn.setBorderPainted(false);
+                btn.setFocusPainted(false);
+                btn.setBackground(new Color(0, 0, 0, 0)); // TRANSPARENT
+                btn.setCursor(CURSOR_HAND);
+                btn.setPreferredSize(new Dimension(16, 12));
+            }
+        }
+
+        spinner.addChangeListener(e -> {
+            int newQty = (int) spinner.getValue();
+            updateQuantity(newQty);
+        });
+
+        return spinner;
     }
 
-    private JButton createArrowButton(String text, int delta) {
-        JButton btn = new RoundedButton(text);
-        btn.setFont(FONT_BUTTON);
-        btn.setBackground(PRIMARY_COLOR);
-        btn.setForeground(TEXT_ON_PRIMARY);
-        btn.setCursor(CURSOR_HAND);
-        btn.setPreferredSize(QTY_BUTTON);
-        btn.addActionListener(e -> updateQuantity(quantity + delta));
-        return btn;
+    private void updateQuantity(int newQty) {
+        if (newQty < 1 || newQty == quantity)
+            return;
+
+        quantity = newQty;
+        subtotalLabel.setText(formatSubtotal());
+        fireQuantityChanged();
     }
 
     private JButton createRemoveButton() {
@@ -174,19 +198,8 @@ public class CartItemPanel extends JPanel {
         return btn;
     }
 
-    private void updateQuantity(int newQty) {
-        if (newQty < 1 || newQty == quantity)
-            return;
-
-        quantity = newQty;
-        qtyLabel.setText(String.valueOf(quantity));
-        subtotalLabel.setText(formatSubtotal());
-
-        fireQuantityChanged();
-    }
-
     private String formatSubtotal() {
-        return String.format("$%.2f", product.getCurrentPrice() * quantity);
+        return String.format("%.0f VNĐ", product.getCurrentPrice() * quantity);
     }
 
     private void fireQuantityChanged() {
@@ -215,7 +228,7 @@ public class CartItemPanel extends JPanel {
 
     private boolean isClickOnActionArea(MouseEvent e) {
         Component c = SwingUtilities.getDeepestComponentAt(CartItemPanel.this, e.getX(), e.getY());
-        return c instanceof JButton;
+        return c instanceof JButton || c instanceof JSpinner || SwingUtilities.isDescendingFrom(c, qtySpinner);
     }
 
     private JPanel createVerticalPanel() {

@@ -8,9 +8,13 @@ import java.util.List;
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.controls.Database;
 import com.hust.soict.aims.entities.*;
+import com.hust.soict.aims.entities.enums.*;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.components.RoundedPanel;
+import com.hust.soict.aims.utils.ImageUtils;
 import static com.hust.soict.aims.utils.UIConstant.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.io.File;
 
 public class ProductFormScreen extends BaseScreenHandler {
     private Product product;
@@ -26,10 +30,18 @@ public class ProductFormScreen extends BaseScreenHandler {
     private JTextField dimensionField;
     private JTextArea descriptionArea;
     private JTextField barcodeField;
+    private JTextField quantityField;
+    private JComboBox<ProductCondition> conditionComboBox;
+    private JComboBox<ProductStatus> statusComboBox;
 
     // Type-specific fields
     private JPanel typeSpecificPanel;
     private List<JComponent> typeSpecificFields;
+    
+    // Image upload fields
+    private File selectedImageFile;
+    private JLabel imagePreviewLabel;
+    private RoundedButton uploadImageButton;
 
     public ProductFormScreen(BaseScreenHandler parent, Product product) {
         super(product == null ? "Add Product" : "Edit Product", parent, false);
@@ -59,11 +71,65 @@ public class ProductFormScreen extends BaseScreenHandler {
         dimensionField = new JTextField();
         descriptionArea = new JTextArea(4, 40);
         barcodeField = new JTextField();
+        quantityField = new JTextField();
+        
+        // Initialize condition and status dropdowns
+        conditionComboBox = new JComboBox<>(ProductCondition.values());
+        conditionComboBox.setFont(FONT_BODY);
+        conditionComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof ProductCondition) {
+                    setText(((ProductCondition) value).getValue());
+                }
+                return this;
+            }
+        });
+        
+        statusComboBox = new JComboBox<>(ProductStatus.values());
+        statusComboBox.setFont(FONT_BODY);
+        statusComboBox.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                    boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof ProductStatus) {
+                    setText(((ProductStatus) value).getValue());
+                }
+                return this;
+            }
+        });
         
         typeSpecificPanel = new JPanel();
         typeSpecificPanel.setLayout(new BoxLayout(typeSpecificPanel, BoxLayout.Y_AXIS));
         typeSpecificPanel.setOpaque(false);
         typeSpecificFields = new ArrayList<>();
+        
+        // Initialize image upload components
+        selectedImageFile = null;
+        imagePreviewLabel = new JLabel();
+        imagePreviewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        imagePreviewLabel.setVerticalAlignment(SwingConstants.CENTER);
+        imagePreviewLabel.setPreferredSize(new Dimension(200, 200));
+        imagePreviewLabel.setMinimumSize(new Dimension(200, 200));
+        imagePreviewLabel.setMaximumSize(new Dimension(200, 200));
+        imagePreviewLabel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)));
+        imagePreviewLabel.setBackground(BACKGROUND_WHITE);
+        imagePreviewLabel.setOpaque(true);
+        imagePreviewLabel.setText("<html><center>No Image<br>Selected</center></html>");
+        imagePreviewLabel.setForeground(TEXT_SECONDARY);
+        
+        uploadImageButton = new RoundedButton("Upload Image", 8);
+        uploadImageButton.setFont(FONT_BUTTON);
+        uploadImageButton.setBackground(PRIMARY_COLOR);
+        uploadImageButton.setForeground(TEXT_ON_PRIMARY);
+        uploadImageButton.setCursor(CURSOR_HAND);
+        uploadImageButton.setPreferredSize(new Dimension(150, 35));
+        uploadImageButton.addActionListener(e -> selectImageFile());
         
         // Update type-specific fields when type changes
         typeComboBox.addActionListener(e -> updateTypeSpecificFields());
@@ -100,9 +166,9 @@ public class ProductFormScreen extends BaseScreenHandler {
 
         // Section 1: Basic Information
         JPanel basicInfoPanel = createSectionPanel("Basic Information");
-        basicInfoPanel.add(createLabeledField("Product Type:", typeComboBox));
+        basicInfoPanel.add(createLabeledField("Product Type:", typeComboBox, true));
         basicInfoPanel.add(Box.createVerticalStrut(SPACING_SMALL));
-        basicInfoPanel.add(createLabeledField("Title:", titleField));
+        basicInfoPanel.add(createLabeledField("Title:", titleField, true));
         basicInfoPanel.add(Box.createVerticalStrut(SPACING_SMALL));
         basicInfoPanel.add(createLabeledField("Barcode:", barcodeField));
         mainPanel.add(basicInfoPanel);
@@ -110,13 +176,19 @@ public class ProductFormScreen extends BaseScreenHandler {
 
         // Section 2: Pricing & Physical Properties
         JPanel pricingPanel = createSectionPanel("Pricing & Physical Properties");
-        pricingPanel.add(createLabeledField("Original Value (VND):", originalValueField));
+        pricingPanel.add(createLabeledField("Original Value (VND):", originalValueField, true));
         pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
-        pricingPanel.add(createLabeledField("Current Price (VND):", currentPriceField));
+        pricingPanel.add(createLabeledField("Current Price (VND):", currentPriceField, true));
         pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
-        pricingPanel.add(createLabeledField("Weight (kg):", weightField));
+        pricingPanel.add(createLabeledField("Weight (kg):", weightField, true));
+        pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
+        pricingPanel.add(createLabeledField("Quantity (Stock):", quantityField, true));
         pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
         pricingPanel.add(createLabeledField("Dimension (WxHxL cm):", dimensionField));
+        pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
+        pricingPanel.add(createLabeledField("Condition:", conditionComboBox));
+        pricingPanel.add(Box.createVerticalStrut(SPACING_SMALL));
+        pricingPanel.add(createLabeledField("Status:", statusComboBox));
         mainPanel.add(pricingPanel);
         mainPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
 
@@ -137,15 +209,34 @@ public class ProductFormScreen extends BaseScreenHandler {
         mainPanel.add(descSectionPanel);
         mainPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
 
+        // Section 3.5: Product Image
+        JPanel imageSectionPanel = createSectionPanel("Product Image");
+        JPanel imagePanel = new JPanel(new BorderLayout(SPACING_MEDIUM, SPACING_SMALL));
+        imagePanel.setOpaque(false);
+        
+        JPanel imagePreviewPanel = new JPanel(new BorderLayout());
+        imagePreviewPanel.setOpaque(false);
+        imagePreviewPanel.add(imagePreviewLabel, BorderLayout.CENTER);
+        
+        JPanel uploadButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        uploadButtonPanel.setOpaque(false);
+        uploadButtonPanel.add(uploadImageButton);
+        
+        imagePanel.add(imagePreviewPanel, BorderLayout.CENTER);
+        imagePanel.add(uploadButtonPanel, BorderLayout.SOUTH);
+        imageSectionPanel.add(imagePanel);
+        mainPanel.add(imageSectionPanel);
+        mainPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
+
         // Section 4: Type-Specific Information
         JPanel typeSectionPanel = createSectionPanel("Type-Specific Information");
         typeSectionPanel.add(typeSpecificPanel);
         mainPanel.add(typeSectionPanel);
 
         // Buttons panel at bottom
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, SPACING_MEDIUM, 0));
-        buttonPanel.setOpaque(false);
-        buttonPanel.setBorder(PADDING_MEDIUM);
+        JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, SPACING_MEDIUM, 0));
+        bottomButtonPanel.setOpaque(false);
+        bottomButtonPanel.setBorder(PADDING_MEDIUM);
 
         RoundedButton saveButton = new RoundedButton("Save", 8);
         saveButton.setFont(FONT_BUTTON);
@@ -171,8 +262,8 @@ public class ProductFormScreen extends BaseScreenHandler {
             }
         });
 
-        buttonPanel.add(saveButton);
-        buttonPanel.add(cancelButton);
+        bottomButtonPanel.add(saveButton);
+        bottomButtonPanel.add(cancelButton);
 
         // Scroll pane for main content (similar to ProductManagementScreen)
         JScrollPane scrollPane = new JScrollPane(mainPanel);
@@ -186,7 +277,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         
         // Add wrapper panel to content pane
         add(wrapperPanel, BorderLayout.CENTER);
-        add(buttonPanel, BorderLayout.SOUTH);
+        add(bottomButtonPanel, BorderLayout.SOUTH);
     }
 
     @Override
@@ -224,12 +315,20 @@ public class ProductFormScreen extends BaseScreenHandler {
     }
 
     private JPanel createLabeledField(String label, JComponent field) {
+        return createLabeledField(label, field, false);
+    }
+    
+    private JPanel createLabeledField(String label, JComponent field, boolean required) {
         JPanel panel = new JPanel(new BorderLayout(SPACING_SMALL, 0));
         panel.setOpaque(false);
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
-        JLabel labelComp = new JLabel(label);
+        String labelText = label;
+        if (required) {
+            labelText = label + " *";
+        }
+        JLabel labelComp = new JLabel(labelText);
         labelComp.setFont(FONT_BODY);
         labelComp.setForeground(TEXT_PRIMARY);
         labelComp.setPreferredSize(new Dimension(200, 35));
@@ -261,7 +360,21 @@ public class ProductFormScreen extends BaseScreenHandler {
         switch (type) {
             case "book":
                 typeSpecificFields.add(createLabeledField("Author:", new JTextField()));
-                typeSpecificFields.add(createLabeledField("Cover Type:", new JTextField()));
+                // Cover Type as dropdown
+                JComboBox<BookCoverType> coverTypeCombo = new JComboBox<>(BookCoverType.values());
+                coverTypeCombo.setFont(FONT_BODY);
+                coverTypeCombo.setRenderer(new DefaultListCellRenderer() {
+                    @Override
+                    public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                            boolean isSelected, boolean cellHasFocus) {
+                        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                        if (value instanceof BookCoverType) {
+                            setText(((BookCoverType) value).getValue());
+                        }
+                        return this;
+                    }
+                });
+                typeSpecificFields.add(createLabeledField("Cover Type:", coverTypeCombo));
                 typeSpecificFields.add(createLabeledField("Publisher:", new JTextField()));
                 typeSpecificFields.add(createLabeledField("Publication Date:", new JTextField()));
                 typeSpecificFields.add(createLabeledField("Number of Pages:", new JTextField()));
@@ -277,7 +390,21 @@ public class ProductFormScreen extends BaseScreenHandler {
                 typeSpecificFields.add(createLabeledField("Release Date:", new JTextField()));
                 break;
             case "dvd":
-                typeSpecificFields.add(createLabeledField("Disc Type:", new JTextField()));
+                // Disc Type as dropdown
+                JComboBox<DVDDiscType> discTypeCombo = new JComboBox<>(DVDDiscType.values());
+                discTypeCombo.setFont(FONT_BODY);
+                discTypeCombo.setRenderer(new DefaultListCellRenderer() {
+                    @Override
+                    public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                            boolean isSelected, boolean cellHasFocus) {
+                        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                        if (value instanceof DVDDiscType) {
+                            setText(((DVDDiscType) value).getValue());
+                        }
+                        return this;
+                    }
+                });
+                typeSpecificFields.add(createLabeledField("Disc Type:", discTypeCombo));
                 typeSpecificFields.add(createLabeledField("Director:", new JTextField()));
                 typeSpecificFields.add(createLabeledField("Runtime (minutes):", new JTextField()));
                 typeSpecificFields.add(createLabeledField("Studio:", new JTextField()));
@@ -322,9 +449,21 @@ public class ProductFormScreen extends BaseScreenHandler {
         originalValueField.setText(String.valueOf((long) product.getOriginalValue()));
         currentPriceField.setText(String.valueOf((long) product.getCurrentPrice()));
         weightField.setText(String.valueOf(product.getWeight()));
+        quantityField.setText(String.valueOf(product.getQuantity()));
         dimensionField.setText(product.getDimension());
         descriptionArea.setText(product.getDescription());
         barcodeField.setText(product.getBarcode() != null ? product.getBarcode() : "");
+        
+        // Load condition and status
+        if (product.getCondition() != null) {
+            conditionComboBox.setSelectedItem(ProductCondition.fromString(product.getCondition()));
+        }
+        if (product.getStatus() != null) {
+            statusComboBox.setSelectedItem(ProductStatus.fromString(product.getStatus()));
+        }
+
+        // Load product image if exists
+        loadProductImage();
 
         updateTypeSpecificFields();
 
@@ -335,7 +474,11 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (type.equals("book") && product instanceof Book) {
             Book b = (Book) product;
             setTypeField(fieldIndex++, b.getAuthor());
-            setTypeField(fieldIndex++, b.getCoverType());
+            // Set cover type dropdown
+            if (b.getCoverType() != null) {
+                setTypeFieldCombo(fieldIndex, BookCoverType.fromString(b.getCoverType()));
+            }
+            fieldIndex++;
             setTypeField(fieldIndex++, b.getPublisher());
             setTypeField(fieldIndex++, b.getPublicationDate());
             setTypeField(fieldIndex++, b.getNumberOfPages() != null ? String.valueOf(b.getNumberOfPages()) : "");
@@ -351,7 +494,11 @@ public class ProductFormScreen extends BaseScreenHandler {
             setTypeField(fieldIndex++, c.getReleaseDate());
         } else if (type.equals("dvd") && product instanceof DVD) {
             DVD d = (DVD) product;
-            setTypeField(fieldIndex++, d.getDiscType());
+            // Set disc type dropdown
+            if (d.getDiscType() != null) {
+                setTypeFieldCombo(fieldIndex, DVDDiscType.fromString(d.getDiscType()));
+            }
+            fieldIndex++;
             setTypeField(fieldIndex++, d.getDirector());
             setTypeField(fieldIndex++, d.getRuntime() != null ? String.valueOf(d.getRuntime()) : "");
             setTypeField(fieldIndex++, d.getStudio());
@@ -381,6 +528,16 @@ public class ProductFormScreen extends BaseScreenHandler {
             }
         }
     }
+    
+    private void setTypeFieldCombo(int index, Object value) {
+        if (index < typeSpecificFields.size()) {
+            JPanel panel = (JPanel) typeSpecificFields.get(index);
+            JComponent field = (JComponent) panel.getComponent(1);
+            if (field instanceof JComboBox) {
+                ((JComboBox<?>) field).setSelectedItem(value);
+            }
+        }
+    }
 
     private String getTypeField(int index) {
         if (index < typeSpecificFields.size()) {
@@ -388,15 +545,50 @@ public class ProductFormScreen extends BaseScreenHandler {
             JComponent field = (JComponent) panel.getComponent(1);
             if (field instanceof JTextField) {
                 return ((JTextField) field).getText().trim();
+            } else if (field instanceof JComboBox) {
+                Object selected = ((JComboBox<?>) field).getSelectedItem();
+                if (selected != null) {
+                    if (selected instanceof BookCoverType) {
+                        return ((BookCoverType) selected).getValue();
+                    } else if (selected instanceof DVDDiscType) {
+                        return ((DVDDiscType) selected).getValue();
+                    }
+                    return selected.toString();
+                }
             }
         }
         return "";
     }
 
     private void saveProduct() {
-        // Validate common fields
+        // Validate required fields
         if (titleField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Title is required", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Title is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            titleField.requestFocus();
+            return;
+        }
+        
+        if (originalValueField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Original Value is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            originalValueField.requestFocus();
+            return;
+        }
+        
+        if (currentPriceField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Current Price is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            currentPriceField.requestFocus();
+            return;
+        }
+        
+        if (weightField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Weight is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            weightField.requestFocus();
+            return;
+        }
+        
+        if (quantityField.getText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Quantity is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            quantityField.requestFocus();
             return;
         }
 
@@ -404,18 +596,53 @@ public class ProductFormScreen extends BaseScreenHandler {
             double originalValue = Double.parseDouble(originalValueField.getText().trim());
             double currentPrice = Double.parseDouble(currentPriceField.getText().trim());
             double weight = Double.parseDouble(weightField.getText().trim());
+            int quantity = Integer.parseInt(quantityField.getText().trim());
+            
+            if (quantity < 0) {
+                JOptionPane.showMessageDialog(this, "Quantity must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                quantityField.requestFocus();
+                return;
+            }
+            
+            if (originalValue < 0) {
+                JOptionPane.showMessageDialog(this, "Original Value must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                originalValueField.requestFocus();
+                return;
+            }
+            
+            if (currentPrice < 0) {
+                JOptionPane.showMessageDialog(this, "Current Price must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                currentPriceField.requestFocus();
+                return;
+            }
+            
+            if (weight <= 0) {
+                JOptionPane.showMessageDialog(this, "Weight must be greater than 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                weightField.requestFocus();
+                return;
+            }
+            
             String dimension = dimensionField.getText().trim();
             String description = descriptionArea.getText().trim();
             String barcode = barcodeField.getText().trim();
             String type = (String) typeComboBox.getSelectedItem();
 
+            // Get condition and status
+            ProductCondition condition = (ProductCondition) conditionComboBox.getSelectedItem();
+            ProductStatus status = (ProductStatus) statusComboBox.getSelectedItem();
+            
             Product newProduct = createProductFromFields(type, originalValue, currentPrice, weight, dimension,
-                    description, barcode);
+                    description, barcode, condition, status, quantity);
 
             if (product == null) {
                 // Add new product
                 long newId = Database.addProduct(newProduct);
                 if (newId > 0) {
+                    // Save image if one was selected
+                    if (selectedImageFile != null) {
+                        ImageUtils.saveProductImage(selectedImageFile, newId);
+                    }
+                    
                     JOptionPane.showMessageDialog(this, "Product added successfully", "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                     // Go back to ProductManagement and refresh
@@ -435,6 +662,11 @@ public class ProductFormScreen extends BaseScreenHandler {
                 // Update existing product
                 newProduct.setId(product.getId());
                 if (Database.updateProduct(newProduct)) {
+                    // Save image if one was selected
+                    if (selectedImageFile != null) {
+                        ImageUtils.saveProductImage(selectedImageFile, product.getId());
+                    }
+                    
                     JOptionPane.showMessageDialog(this, "Product updated successfully", "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                     // Go back to ProductManagement and refresh
@@ -458,7 +690,7 @@ public class ProductFormScreen extends BaseScreenHandler {
     }
 
     private Product createProductFromFields(String type, double originalValue, double currentPrice, double weight,
-            String dimension, String description, String barcode) {
+            String dimension, String description, String barcode, ProductCondition condition, ProductStatus status, int quantity) {
         String title = titleField.getText().trim();
         long id = product != null ? product.getId() : 0;
 
@@ -479,6 +711,9 @@ public class ProductFormScreen extends BaseScreenHandler {
                 b.setBookCategory(getTypeField(6));
                 b.setGenre(getTypeField(7));
                 b.setBarcode(barcode.isEmpty() ? null : barcode);
+                b.setQuantity(quantity);
+                if (condition != null) b.setCondition(condition.getValue());
+                if (status != null) b.setStatus(status.getValue());
                 p = b;
                 break;
             }
@@ -488,6 +723,9 @@ public class ProductFormScreen extends BaseScreenHandler {
                 c.setGenre(getTypeField(3));
                 c.setReleaseDate(getTypeField(4));
                 c.setBarcode(barcode.isEmpty() ? null : barcode);
+                c.setQuantity(quantity);
+                if (condition != null) c.setCondition(condition.getValue());
+                if (status != null) c.setStatus(status.getValue());
                 p = c;
                 break;
             }
@@ -513,6 +751,9 @@ public class ProductFormScreen extends BaseScreenHandler {
                 d.setReleaseDate(getTypeField(6));
                 d.setGenre(getTypeField(7));
                 d.setBarcode(barcode.isEmpty() ? null : barcode);
+                d.setQuantity(quantity);
+                if (condition != null) d.setCondition(condition.getValue());
+                if (status != null) d.setStatus(status.getValue());
                 p = d;
                 break;
             }
@@ -525,17 +766,90 @@ public class ProductFormScreen extends BaseScreenHandler {
                 n.setLanguage(getTypeField(6));
                 n.setSections(getTypeField(7));
                 n.setBarcode(barcode.isEmpty() ? null : barcode);
+                n.setQuantity(quantity);
+                if (condition != null) n.setCondition(condition.getValue());
+                if (status != null) n.setStatus(status.getValue());
                 p = n;
                 break;
             }
             default: {
                 p = new Product(id, title, originalValue, currentPrice, weight, dimension, description,
                         barcode.isEmpty() ? null : barcode, null);
+                p.setQuantity(quantity);
+                if (condition != null) p.setCondition(condition.getValue());
+                if (status != null) p.setStatus(status.getValue());
                 break;
             }
         }
 
         return p;
+    }
+
+    /**
+     * Handle image file selection
+     */
+    private void selectImageFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Select Product Image");
+        fileChooser.setFileFilter(new FileNameExtensionFilter(
+                "Image Files (*.jpg, *.jpeg, *.png, *.gif)", "jpg", "jpeg", "png", "gif"));
+        
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            selectedImageFile = fileChooser.getSelectedFile();
+            displayImagePreview(selectedImageFile);
+        }
+    }
+    
+    /**
+     * Display image preview in the preview label
+     */
+    private void displayImagePreview(File imageFile) {
+        if (imageFile == null || !imageFile.exists()) {
+            imagePreviewLabel.setIcon(null);
+            imagePreviewLabel.setText("<html><center>No Image<br>Selected</center></html>");
+            return;
+        }
+        
+        try {
+            ImageIcon icon = new ImageIcon(imageFile.getAbsolutePath());
+            Image image = icon.getImage();
+            
+            // Scale image to fit preview label (200x200)
+            int previewSize = 180; // Leave some padding
+            int width = image.getWidth(null);
+            int height = image.getHeight(null);
+            
+            double scale = Math.min((double) previewSize / width, (double) previewSize / height);
+            int scaledWidth = (int) (width * scale);
+            int scaledHeight = (int) (height * scale);
+            
+            Image scaledImage = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+            imagePreviewLabel.setIcon(new ImageIcon(scaledImage));
+            imagePreviewLabel.setText(null);
+        } catch (Exception e) {
+            imagePreviewLabel.setIcon(null);
+            imagePreviewLabel.setText("<html><center>Error<br>Loading Image</center></html>");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Load existing product image if available
+     */
+    private void loadProductImage() {
+        if (product == null || product.getId() <= 0) {
+            return;
+        }
+        
+        String imagePath = ImageUtils.getProductImagePath(product.getId());
+        if (imagePath != null) {
+            File imageFile = new File(imagePath);
+            if (imageFile.exists()) {
+                displayImagePreview(imageFile);
+                // Don't set selectedImageFile here - only set it when user explicitly selects a new image
+            }
+        }
     }
 
     @Override
