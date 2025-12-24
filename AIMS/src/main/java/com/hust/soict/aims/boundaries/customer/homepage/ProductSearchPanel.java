@@ -22,16 +22,16 @@ public class ProductSearchPanel extends RoundedPanel {
     
     // Price ranges in VND
     private static final String[] PRICE_RANGES = {
-        "Tất cả",
-        "< 100.000 VND",
-        "100.000 - 200.000 VND",
-        "200.000 - 300.000 VND",
-        "300.000 - 500.000 VND",
-        "> 500.000 VND"
+        "All",
+        "< 100,000 VND",
+        "100,000 - 200,000 VND",
+        "200,000 - 300,000 VND",
+        "300,000 - 500,000 VND",
+        "> 500,000 VND"
     };
     
     private static final String[] CATEGORIES = {
-        "Tất cả",
+        "All",
         "Book",
         "CD",
         "DVD",
@@ -73,14 +73,14 @@ public class ProductSearchPanel extends RoundedPanel {
         searchField = new JTextField();
         searchField.setFont(FONT_BODY);
         searchField.setPreferredSize(new Dimension(400, 38));
-        searchField.setToolTipText("Nhập tên sản phẩm để tìm kiếm");
+        searchField.setToolTipText("Enter product name to search");
         searchField.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BORDER_LIGHT, 1),
             BorderFactory.createEmptyBorder(8, 12, 8, 12)
         ));
         
-        // Search button (blue) with rounded corners
-        searchButton = new RoundedButton("Tìm kiếm", 8);
+        // Search button (orange) with rounded corners
+        searchButton = new RoundedButton("Search", 8);
         searchButton.setFont(FONT_BUTTON);
         searchButton.setBackground(PRIMARY_COLOR);
         searchButton.setForeground(TEXT_ON_PRIMARY);
@@ -95,26 +95,26 @@ public class ProductSearchPanel extends RoundedPanel {
         JPanel bottomRow = new JPanel(new FlowLayout(FlowLayout.LEFT, SPACING_SMALL, SPACING_SMALL));
         bottomRow.setOpaque(false);
         
-        JLabel categoryLabel = new JLabel("Danh mục:");
+        JLabel categoryLabel = new JLabel("Category:");
         categoryLabel.setFont(FONT_BODY);
         categoryLabel.setForeground(TEXT_PRIMARY);
         
         categoryComboBox = new JComboBox<>(CATEGORIES);
         categoryComboBox.setFont(FONT_BODY);
         categoryComboBox.setPreferredSize(new Dimension(160, 38));
-        categoryComboBox.setToolTipText("Chọn danh mục sản phẩm");
+        categoryComboBox.setToolTipText("Select product category");
         
-        JLabel priceLabel = new JLabel("Khoảng giá:");
+        JLabel priceLabel = new JLabel("Price Range:");
         priceLabel.setFont(FONT_BODY);
         priceLabel.setForeground(TEXT_PRIMARY);
         
         priceRangeComboBox = new JComboBox<>(PRICE_RANGES);
         priceRangeComboBox.setFont(FONT_BODY);
         priceRangeComboBox.setPreferredSize(new Dimension(220, 38));
-        priceRangeComboBox.setToolTipText("Chọn khoảng giá");
+        priceRangeComboBox.setToolTipText("Select price range");
         
         // Clear button (moved to bottom row) with rounded corners
-        clearButton = new RoundedButton("Xóa", 8);
+        clearButton = new RoundedButton("Clear", 8);
         clearButton.setFont(FONT_BUTTON);
         clearButton.setBackground(BACKGROUND_GRAY);
         clearButton.setForeground(TEXT_PRIMARY);
@@ -185,7 +185,7 @@ public class ProductSearchPanel extends RoundedPanel {
     private void performSearch() {
         String searchTerm = searchField.getText().trim();
         String category = (String) categoryComboBox.getSelectedItem();
-        if (category != null && category.equals("Tất cả")) {
+        if (category != null && category.equals("All")) {
             category = null;
         }
         
@@ -194,19 +194,19 @@ public class ProductSearchPanel extends RoundedPanel {
         Double minPrice = null;
         Double maxPrice = null;
         
-        if (priceRange != null && !priceRange.equals("Tất cả")) {
-            if (priceRange.equals("< 100.000 VND")) {
+        if (priceRange != null && !priceRange.equals("All")) {
+            if (priceRange.equals("< 100,000 VND")) {
                 maxPrice = 100000.0;
-            } else if (priceRange.equals("100.000 - 200.000 VND")) {
+            } else if (priceRange.equals("100,000 - 200,000 VND")) {
                 minPrice = 100000.0;
                 maxPrice = 200000.0;
-            } else if (priceRange.equals("200.000 - 300.000 VND")) {
+            } else if (priceRange.equals("200,000 - 300,000 VND")) {
                 minPrice = 200000.0;
                 maxPrice = 300000.0;
-            } else if (priceRange.equals("300.000 - 500.000 VND")) {
+            } else if (priceRange.equals("300,000 - 500,000 VND")) {
                 minPrice = 300000.0;
                 maxPrice = 500000.0;
-            } else if (priceRange.equals("> 500.000 VND")) {
+            } else if (priceRange.equals("> 500,000 VND")) {
                 minPrice = 500000.0;
             }
         }
@@ -226,7 +226,7 @@ public class ProductSearchPanel extends RoundedPanel {
      */
     public String getCategory() {
         String category = (String) categoryComboBox.getSelectedItem();
-        return (category != null && !category.equals("Tất cả")) ? category : null;
+        return (category != null && !category.equals("All")) ? category : null;
     }
     
     /**
@@ -237,19 +237,19 @@ public class ProductSearchPanel extends RoundedPanel {
         Double minPrice = null;
         Double maxPrice = null;
         
-        if (priceRange != null && !priceRange.equals("Tất cả")) {
-            if (priceRange.equals("< 100.000 VND")) {
+        if (priceRange != null && !priceRange.equals("All")) {
+            if (priceRange.equals("< 100,000 VND")) {
                 maxPrice = 100000.0;
-            } else if (priceRange.equals("100.000 - 200.000 VND")) {
+            } else if (priceRange.equals("100,000 - 200,000 VND")) {
                 minPrice = 100000.0;
                 maxPrice = 200000.0;
-            } else if (priceRange.equals("200.000 - 300.000 VND")) {
+            } else if (priceRange.equals("200,000 - 300,000 VND")) {
                 minPrice = 200000.0;
                 maxPrice = 300000.0;
-            } else if (priceRange.equals("300.000 - 500.000 VND")) {
+            } else if (priceRange.equals("300,000 - 500,000 VND")) {
                 minPrice = 300000.0;
                 maxPrice = 500000.0;
-            } else if (priceRange.equals("> 500.000 VND")) {
+            } else if (priceRange.equals("> 500,000 VND")) {
                 minPrice = 500000.0;
             }
         }

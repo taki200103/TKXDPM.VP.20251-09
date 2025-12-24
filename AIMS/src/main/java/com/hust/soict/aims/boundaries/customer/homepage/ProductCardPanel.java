@@ -114,13 +114,13 @@ public class ProductCardPanel extends RoundedPanel {
                 imageLabel.setIcon(new ImageIcon(scaledImg));
             } else {
                 // Placeholder for missing image
-                imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>Không có<br>ảnh</div></center></html>");
+                imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>No<br>Image</div></center></html>");
                 imageLabel.setFont(FONT_SMALL);
                 imageLabel.setForeground(TEXT_SECONDARY);
             }
         } else {
             // Placeholder for no image path
-            imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>Không có<br>ảnh</div></center></html>");
+            imageLabel.setText("<html><center><div style='color: #999; font-size: 11px;'>No<br>Image</div></center></html>");
             imageLabel.setFont(FONT_SMALL);
             imageLabel.setForeground(TEXT_SECONDARY);
         }
@@ -195,7 +195,7 @@ public class ProductCardPanel extends RoundedPanel {
      * Create "Add to Cart" button
      */
     private RoundedButton createAddButton() {
-        RoundedButton addButton = new RoundedButton("Thêm vào giỏ", 8);
+        RoundedButton addButton = new RoundedButton("Add to Cart", 8);
         addButton.setFont(FONT_BUTTON);
         addButton.setBackground(PRIMARY_COLOR);
         addButton.setForeground(TEXT_ON_PRIMARY);
@@ -206,8 +206,8 @@ public class ProductCardPanel extends RoundedPanel {
             
             // Show confirmation message
             JOptionPane.showMessageDialog(parentComponent, 
-                "Đã thêm vào giỏ: " + product.getTitle(), 
-                "Giỏ hàng", 
+                "Added to cart: " + product.getTitle(), 
+                "Cart", 
                 JOptionPane.INFORMATION_MESSAGE);
             
             // Trigger callback if set
@@ -223,7 +223,7 @@ public class ProductCardPanel extends RoundedPanel {
      * Create "Info" button
      */
     private RoundedButton createInfoButton() {
-        RoundedButton infoButton = new RoundedButton("Chi tiết", 8);
+        RoundedButton infoButton = new RoundedButton("Details", 8);
         infoButton.setFont(FONT_BUTTON);
         infoButton.setBackground(BACKGROUND_GRAY);
         infoButton.setForeground(TEXT_PRIMARY);

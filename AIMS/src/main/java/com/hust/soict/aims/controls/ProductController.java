@@ -45,7 +45,7 @@ public class ProductController {
         }
         return Database.countSearchResults(searchTerm.trim());
     }
-    
+
     /**
      * Search and filter products with multiple criteria
      * @param searchTerm Search term for title (can be empty)

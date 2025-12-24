@@ -3,10 +3,11 @@ package com.hust.soict.aims.utils;
 import java.io.File;
 
 /**
- * Utility class for handling product images
+ * Utility class for handling product images and common images
  */
 public class ImageUtils {
     private static final String IMAGES_FOLDER = "src/main/resources/images/products";
+    private static final String COMMON_IMAGES_FOLDER = "src/main/resources/images/common";
     private static final String IMAGE_EXTENSION = ".png";
     
     /**
@@ -54,5 +55,42 @@ public class ImageUtils {
      */
     public static String getImagesFolder() {
         return IMAGES_FOLDER;
+    }
+    
+    /**
+     * Get logo path from common images folder
+     * @param logoFileName Logo file name (e.g., "logo.png")
+     * @return Full path to the logo file, or null if doesn't exist
+     */
+    public static String getLogoPath(String logoFileName) {
+        String logoPath = COMMON_IMAGES_FOLDER + File.separator + logoFileName;
+        File logoFile = new File(logoPath);
+        if (logoFile.exists()) {
+            return logoPath;
+        }
+        return null;
+    }
+    
+    /**
+     * Get logo path (tries common names: logo.png, logo.jpg, etc.)
+     * @return Full path to the logo file, or null if doesn't exist
+     */
+    public static String getLogoPath() {
+        String[] commonNames = {"logo.png", "logo.jpg", "logo.jpeg", "logo.gif"};
+        for (String name : commonNames) {
+            String path = getLogoPath(name);
+            if (path != null) {
+                return path;
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Get the common images folder path
+     * @return Path to common images folder
+     */
+    public static String getCommonImagesFolder() {
+        return COMMON_IMAGES_FOLDER;
     }
 }

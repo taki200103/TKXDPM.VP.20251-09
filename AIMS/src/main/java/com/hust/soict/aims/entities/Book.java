@@ -4,9 +4,10 @@ public class Book extends Product {
     private String author;
     private String coverType; // paperback or hardcover
     private String publisher;
-    private String publicationDate;
-    private Integer numberOfPages; // optional
+    private String publicationDate; // publish_date in DB
+    private Integer numberOfPages; // number_of_page in DB
     private String language; // optional
+    private String bookCategory; // book_category in DB
     private String genre; // optional
 
     public Book() {}
@@ -34,7 +35,12 @@ public class Book extends Product {
     public void setLanguage(String language) { this.language = language; }
     public String getGenre() { return genre; }
     public void setGenre(String genre) { this.genre = genre; }
+    public String getBookCategory() { return bookCategory; }
+    public void setBookCategory(String bookCategory) { this.bookCategory = bookCategory; }
 
     @Override
-    public String getType() { return "book"; }
+    public String getType() { 
+        if (super.getCategory() != null) return super.getCategory().toLowerCase();
+        return "book"; 
+    }
 }
