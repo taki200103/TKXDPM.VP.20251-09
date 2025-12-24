@@ -9,6 +9,7 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.boundaries.ProductDetailScreen;
 import com.hust.soict.aims.boundaries.LoginScreen;
 import com.hust.soict.aims.boundaries.customer.cart.CartScreen;
+import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.entities.Product;
 import static com.hust.soict.aims.utils.UIConstant.*;
@@ -20,8 +21,8 @@ public class Homepage extends BaseScreenHandler {
     private JPanel gridPanel;
     private PaginationPanel paginationPanel;
     private ProductSearchPanel searchPanel;
-    private com.hust.soict.aims.utils.RoundedButton cartButton;
-    private com.hust.soict.aims.utils.RoundedButton loginButton;
+    private com.hust.soict.aims.components.RoundedButton cartButton;
+    private com.hust.soict.aims.components.RoundedButton loginButton;
 
     // Current search filters
     private String currentSearchTerm = "";
@@ -57,7 +58,7 @@ public class Homepage extends BaseScreenHandler {
         paginationPanel = new PaginationPanel();
 
         // Initialize cart button with rounded corners
-        cartButton = new com.hust.soict.aims.utils.RoundedButton(getCartButtonText(), 8);
+        cartButton = new RoundedButton(getCartButtonText(), 8);
         cartButton.setFont(FONT_BUTTON);
         cartButton.setBackground(new Color(255, 255, 255, 30)); // Semi-transparent white
         cartButton.setForeground(TEXT_ON_PRIMARY);
@@ -65,7 +66,7 @@ public class Homepage extends BaseScreenHandler {
         cartButton.setPreferredSize(new Dimension(120, 40));
 
         // Initialize login button
-        loginButton = new com.hust.soict.aims.utils.RoundedButton("Login", 8);
+        loginButton = new com.hust.soict.aims.components.RoundedButton("Login", 8);
         loginButton.setFont(FONT_BUTTON);
         loginButton.setBackground(new Color(255, 255, 255, 30)); // Semi-transparent white
         loginButton.setForeground(TEXT_ON_PRIMARY);
