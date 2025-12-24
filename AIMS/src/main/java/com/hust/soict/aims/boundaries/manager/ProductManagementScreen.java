@@ -12,7 +12,7 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.controls.Database;
 import com.hust.soict.aims.controls.ProductController;
 import com.hust.soict.aims.entities.*;
-import com.hust.soict.aims.utils.RoundedButton;
+import com.hust.soict.aims.components.RoundedButton;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class ProductManagementScreen extends BaseScreenHandler {

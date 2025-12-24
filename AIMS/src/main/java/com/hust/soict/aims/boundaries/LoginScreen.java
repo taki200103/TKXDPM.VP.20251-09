@@ -4,7 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import com.hust.soict.aims.controls.AuthController;
 import com.hust.soict.aims.boundaries.manager.ProductManagementScreen;
-import com.hust.soict.aims.utils.RoundedButton;
+import com.hust.soict.aims.components.RoundedButton;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class LoginScreen extends JDialog {
