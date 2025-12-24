@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.image.ImageView?>
+
+<AnchorPane prefHeight="600.0" prefWidth="800.0" style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.aims.views.payment.PaymentScreenHandler">
+    <children>
+        <VBox alignment="TOP_CENTER" layoutX="20.0" layoutY="20.0" prefHeight="560.0" prefWidth="760.0" spacing="20.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0" AnchorPane.topAnchor="20.0">
+            <children>
+                <Label text="THANH TOÁN ĐƠN HÀNG" textFill="#2c3e50">
+                    <font>
+                        <Font name="System Bold" size="24.0" />
+                    </font>
+                </Label>
+
+                <TabPane fx:id="paymentTabPane" prefHeight="450.0" prefWidth="760.0" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+                    <tabs>
+                        <Tab text="Thanh toán qua VietQR">
+                            <content>
+                                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                                    <children>
+                                        <VBox alignment="CENTER" spacing="15.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                            <children>
+                                                <Label text="Quét mã QR để thanh toán" />
+                                                <ImageView fx:id="qrImageView" fitHeight="300.0" fitWidth="300.0" pickOnBounds="true" preserveRatio="true" style="-fx-border-color: #bdc3c7; -fx-border-width: 1;" />
+                                                <Label fx:id="qrStatusLabel" text="Đang tải mã QR..." textFill="#3498db" />
+                                            </children>
+                                        </VBox>
+                                    </children>
+                                </AnchorPane>
+                            </content>
+                        </Tab>
+
+                        <Tab text="Thẻ tín dụng (PayPal)">
+                            <content>
+                                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
+                                    <children>
+                                        <VBox alignment="CENTER" spacing="20.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                            <children>
+                                                <Label text="Tổng tiền thanh toán (VND):" />
+                                                <Label fx:id="amountLabel" text="0 VND" textFill="#e74c3c">
+                                                    <font>
+                                                        <Font name="System Bold" size="20.0" />
+                                                    </font>
+                                                </Label>
+                                                <Button fx:id="payPalButton" mnemonicParsing="false" prefHeight="45.0" prefWidth="250.0" style="-fx-background-color: #0070ba; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20;" text="Thanh toán với PayPal" />
+                                                <Label text="Hệ thống sẽ mở trình duyệt để hoàn tất giao dịch" textFill="#7f8c8d">
+                                                    <font>
+                                                        <Font name="System Italic" size="12.0" />
+                                                    </font>
+                                                </Label>
+                                            </children>
+                                        </VBox>
+                                    </children>
+                                </AnchorPane>
+                            </content>
+                        </Tab>
+                    </tabs>
+                </TabPane>
+
+                <Button fx:id="backButton" mnemonicParsing="false" prefHeight="35.0" prefWidth="100.0" style="-fx-background-color: #95a5a6; -fx-text-fill: white;" text="Quay lại" />
+            </children>
+        </VBox>
+    </children>
+</AnchorPane>

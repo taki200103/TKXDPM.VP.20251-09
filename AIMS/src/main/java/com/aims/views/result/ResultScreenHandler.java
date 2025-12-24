@@ -36,15 +36,12 @@ public class ResultScreenHandler extends BaseScreenHandler {
     }
 
     public void showResult(String msg) {
-        if (resultLabel != null) resultLabel.setText(msg);
+        // Kiểm tra xem label đã được nạp từ FXML chưa
+        if (resultLabel != null) {
+            resultLabel.setText(msg);
+        }
         if (messageLabel != null) {
-            if ("PAYMENT SUCCESS".equals(msg)) {
-                messageLabel.setText("Giao dịch thành công! Cảm ơn bạn.");
-                messageLabel.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
-            } else {
-                messageLabel.setText("Giao dịch thất bại!");
-                messageLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-            }
+            messageLabel.setText("Cảm ơn bạn đã mua hàng!");
         }
     }
 }

@@ -22,6 +22,7 @@ public class PaymentScreenHandler extends BaseScreenHandler {
 
     private PayPalSubsystem payPalSubsystem;
     private VietQRSubsystem vietQRSubsystem;
+    private Alert loadingAlert;
 
     public PaymentScreenHandler(Stage stage, String screenPath) throws IOException {
         super(stage, screenPath);
@@ -97,25 +98,27 @@ public class PaymentScreenHandler extends BaseScreenHandler {
     private void onPaymentSuccess(int amount, String contents) {
         Platform.runLater(() -> {
             try {
-                // 1. Khởi tạo handler và nạp file FXML từ resources
-                ResultScreenHandler resultScreen = new ResultScreenHandler(this.stage, Configs.RESULT_SCREEN_PATH);
+                LOGGER.info("Đã đóng màn hình chờ và hiển thị kết quả thành công.");
 
-                // 2. Thiết lập các thông tin liên kết màn hình
-                resultScreen.setHomeScreenHandler(this.homeScreenHandler);
-                resultScreen.setScreenTitle("Kết quả thanh toán");
+                // 🟢 Đóng popup nếu còn mở
+                if (loadingAlert != null) {
+                    loadingAlert.close();   // hoặc loadingAlert.hide();
+                    loadingAlert = null;
+                }
 
-                // 3. Hiển thị stage lên trước để các biến @FXML được khởi tạo (Inject)
+                // Mở màn hình kết quả
+                ResultScreenHandler resultScreen =
+                        new ResultScreenHandler(this.stage, Configs.RESULT_SCREEN_PATH);
+
                 resultScreen.show();
-
-                // 4. Cuối cùng mới gọi hàm đổ dữ liệu vào các Label
-                // Nếu gọi trước khi show(), resultLabel có thể bị null gây trắng màn hình
                 resultScreen.showResult("PAYMENT SUCCESS");
 
             } catch (IOException e) {
-                LOGGER.severe("Lỗi nạp màn hình kết quả: " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }
+
 
     private void openBrowser(String url) {
         try {
@@ -128,11 +131,13 @@ public class PaymentScreenHandler extends BaseScreenHandler {
     }
 
     private void showLoadingAlert() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Đang xử lý thanh toán");
-        alert.setHeaderText("Vui lòng thực hiện thanh toán trên trình duyệt");
-        alert.setContentText("Hệ thống đang chờ phản hồi từ PayPal...\n(Cửa sổ này sẽ tự đóng khi hoàn tất)");
-        alert.show();
+        // dùng field, KHÔNG thêm chữ 'Alert' ở trước nữa
+        loadingAlert = new Alert(Alert.AlertType.INFORMATION);
+        loadingAlert.setTitle("Đang xử lý thanh toán");
+        loadingAlert.setHeaderText("Vui lòng thực hiện thanh toán trên trình duyệt");
+        loadingAlert.setContentText("Hệ thống đang chờ phản hồi từ PayPal...\n(Cửa sổ này sẽ tự đóng khi hoàn tất)");
+        loadingAlert.initOwner(this.stage); // cho đẹp, gắn cùng window
+        loadingAlert.show();                // dùng show() chứ không showAndWait()
     }
 
     private void showError(String msg) {
