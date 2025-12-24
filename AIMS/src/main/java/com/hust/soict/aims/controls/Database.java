@@ -268,9 +268,9 @@ public class Database {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-        }
-    }
-    
+                }
+            }
+
     /**
      * Migrate data from legacy products table to new Media schema
      */
@@ -335,7 +335,8 @@ public class Database {
                     // Insert into Media
                     String insertMedia = "INSERT INTO Media (category, barcode, title, description, price, value, quantity, weight, height, width, length, image_url, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     try (PreparedStatement ps = conn.prepareStatement(insertMedia, Statement.RETURN_GENERATED_KEYS)) {
-                        ps.setString(1, type);
+                        // Normalize category to lowercase for case-insensitive consistency
+                        ps.setString(1, type != null ? type.toLowerCase() : null);
                         ps.setString(2, barcode != null ? barcode : "LEGACY" + oldId);
                         ps.setString(3, title);
                         ps.setString(4, description);
@@ -499,7 +500,7 @@ public class Database {
         }
         
         // Seed books
-        for (int i = 1; i <= 15; i++) {
+            for (int i = 1; i <= 15; i++) {
             long mediaId = insertMedia(conn, "Book", "BOOK" + String.format("%06d", i), 
                 "Book title " + i, "A great book.", 80.0 + i, 100.0 + i, 10, 
                 0.5 + i * 0.01, 20.0, 15.0, null, "new", 
@@ -514,10 +515,10 @@ public class Database {
                 "language", "English",
                 "genre", "Fiction"
             ));
-        }
-        
+            }
+
         // Seed newspapers
-        for (int i = 1; i <= 10; i++) {
+            for (int i = 1; i <= 10; i++) {
             long mediaId = insertMedia(conn, "Newspaper", "NEWS" + String.format("%06d", i),
                 "Newspaper " + i, "Daily news.", 3.0 + i, 5.0 + i, 10,
                 0.2, 40.0, 30.0, null, "new",
@@ -533,10 +534,10 @@ public class Database {
                 "language", "Vietnamese",
                 "sections", "News, Sports, Entertainment"
             ));
-        }
-        
+            }
+
         // Seed CDs
-        for (int i = 1; i <= 12; i++) {
+            for (int i = 1; i <= 12; i++) {
             long mediaId = insertMedia(conn, "CD", "CD" + String.format("%06d", i),
                 "Album " + i, "Music album.", 12.0 + i, 15.0 + i, 10,
                 0.1, 12.0, 12.0, null, "new",
@@ -549,10 +550,10 @@ public class Database {
                 "releaseDate", "2019-05-0" + ((i%9)+1),
                 "genre", "Pop"
             ));
-        }
-        
+            }
+
         // Seed DVDs
-        for (int i = 1; i <= 13; i++) {
+            for (int i = 1; i <= 13; i++) {
             long mediaId = insertMedia(conn, "DVD", "DVD" + String.format("%06d", i),
                 "Movie " + i, "A movie.", 20.0 + i, 25.0 + i, 10,
                 0.2, 19.0, 14.0, null, "new",
@@ -571,13 +572,14 @@ public class Database {
         }
     }
     
-    private static long insertMedia(Connection conn, String category, String barcode, String title, 
+    private static long insertMedia(Connection conn, String category, String barcode, String title,
                                    String description, double price, double value, int quantity,
                                    double weight, Double width, Double height, Double length,
                                    String condition, String imageUrl, int createdBy) throws SQLException {
         String sql = "INSERT INTO Media (category, barcode, title, description, price, value, quantity, weight, width, height, length, condition, image_url, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, category);
+            // Normalize category to lowercase for case-insensitive consistency
+            ps.setString(1, category != null ? category.toLowerCase() : null);
             ps.setString(2, barcode);
             ps.setString(3, title);
             ps.setString(4, description);
@@ -595,13 +597,13 @@ public class Database {
             ps.setString(13, imageUrl);
             ps.setInt(14, createdBy);
             ps.setInt(15, createdBy);
-            ps.executeUpdate();
+                ps.executeUpdate();
             
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
                     return rs.getLong(1);
-                }
             }
+        }
         }
         return -1;
     }
@@ -610,7 +612,7 @@ public class Database {
     // Legacy methods for backward compatibility
     // These methods work with the old products table
     // =======================
-    
+
     public static int countProducts() {
         // Try Media first, fallback to products
         try (Connection conn = DriverManager.getConnection(URL); 
@@ -702,7 +704,7 @@ public class Database {
 
     // Continue with legacy queryProducts method and other methods...
     // For now, keeping the old methods for backward compatibility
-    
+
     public static List<Product> getProducts(int offset, int limit) {
         // Try to get from Media first
         List<Product> mediaProducts = queryMediaProducts(offset, limit);
@@ -927,7 +929,7 @@ public class Database {
      */
     private static List<Product> searchMediaProducts(String searchTerm, String category, Double minPrice, Double maxPrice, int offset, int limit) {
         List<Product> list = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.image_url " +
+        StringBuilder sql = new StringBuilder("SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
                      "FROM Media m WHERE m.status = 'active'");
         List<Object> params = new ArrayList<>();
         
@@ -1028,7 +1030,7 @@ public class Database {
                     stmt.setInt(i + 1, (Integer) param);
                 }
             }
-        });
+                            });
     }
     
     /**
@@ -1295,7 +1297,8 @@ public class Database {
                 String sql = "INSERT INTO Media (category, barcode, title, description, price, value, quantity, weight, width, height, length, condition, image_url, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 long mediaId;
                 try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                    ps.setString(1, product.getType());
+                    // Normalize category to lowercase for consistency
+                    ps.setString(1, product.getType() != null ? product.getType().toLowerCase() : null);
                     ps.setString(2, product.getBarcode() != null ? product.getBarcode() : "PROD" + System.currentTimeMillis());
                     ps.setString(3, product.getTitle());
                     ps.setString(4, product.getDescription());
@@ -1375,7 +1378,8 @@ public class Database {
                 // Update Media
                 String sql = "UPDATE Media SET category=?, barcode=?, title=?, description=?, price=?, value=?, weight=?, width=?, height=?, length=?, image_url=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE media_id=?";
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setString(1, product.getType());
+                    // Normalize category to lowercase for consistency
+                    ps.setString(1, product.getType() != null ? product.getType().toLowerCase() : null);
                     ps.setString(2, product.getBarcode() != null ? product.getBarcode() : String.valueOf(product.getId()));
                     ps.setString(3, product.getTitle());
                     ps.setString(4, product.getDescription());

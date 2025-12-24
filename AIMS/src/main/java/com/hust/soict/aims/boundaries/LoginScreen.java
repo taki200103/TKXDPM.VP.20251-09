@@ -13,7 +13,7 @@ public class LoginScreen extends JDialog {
     private BaseScreenHandler parentScreen;
 
     public LoginScreen(Frame owner, BaseScreenHandler parent) {
-        super(owner, "Manager Login", true);
+        super(owner, "Login", true);
         this.parentScreen = parent;
 
         setSize(450, 300);
@@ -34,7 +34,7 @@ public class LoginScreen extends JDialog {
         mainPanel.setBackground(BACKGROUND_WHITE);
 
         // Title
-        JLabel titleLabel = new JLabel("Manager Login");
+        JLabel titleLabel = new JLabel("Welcome to AIMS");
         titleLabel.setFont(FONT_HEADER);
         titleLabel.setForeground(TEXT_PRIMARY);
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -135,9 +135,10 @@ public class LoginScreen extends JDialog {
             // Login successful
             setVisible(false);
 
-            // Navigate to manager screen
+            // Navigate to manager main screen
             if (parentScreen != null) {
-                ProductManagementScreen managerScreen = new ProductManagementScreen(parentScreen);
+                com.hust.soict.aims.boundaries.manager.ManagerMainScreen managerScreen = 
+                    new com.hust.soict.aims.boundaries.manager.ManagerMainScreen(parentScreen);
                 ScreenNavigator.getInstance().navigateTo(managerScreen);
             } else {
                 JOptionPane.showMessageDialog(this,

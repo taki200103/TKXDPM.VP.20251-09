@@ -9,9 +9,9 @@ import javax.swing.border.EmptyBorder;
 public class UIConstant {
     // ========== COLOR PALETTE ==========
     
-    // Primary Colors (Orange theme)
-    public static final Color PRIMARY_COLOR = new Color(255, 152, 0);      // #FF9800 - Orange
-    public static final Color PRIMARY_DARK = new Color(230, 126, 34);       // #E67E22 - Dark Orange
+    // Primary Colors (Orange theme - darker to reduce glare)
+    public static final Color PRIMARY_COLOR = new Color(204, 102, 0);       // #CC6600 - Darker Orange
+    public static final Color PRIMARY_DARK = new Color(153, 76, 0);        // #994C00 - Darker Orange
     public static final Color TEXT_ON_PRIMARY = Color.WHITE;
     
     // Secondary Colors
@@ -20,7 +20,7 @@ public class UIConstant {
     public static final Color DANGER_COLOR = new Color(231, 76, 60);        // #E74C3C - Red
     public static final Color DANGER_DARK = new Color(192, 57, 43);         // #C0392B - Dark Red
     public static final Color WARNING_COLOR = new Color(243, 156, 18);      // #F39C12 - Orange
-    public static final Color INFO_COLOR = new Color(255, 152, 0);         // #FF9800 - Orange
+    public static final Color INFO_COLOR = new Color(204, 102, 0);         // #CC6600 - Darker Orange (matches PRIMARY_COLOR)
     
     // Neutral Colors - Background
     public static final Color BACKGROUND_WHITE = Color.WHITE;

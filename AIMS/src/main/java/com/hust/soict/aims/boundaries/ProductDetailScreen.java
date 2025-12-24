@@ -11,6 +11,7 @@ import java.util.List;
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.utils.ImageUtils;
 import com.hust.soict.aims.utils.BarcodeGenerator;
+import com.hust.soict.aims.utils.RoundedButton;
 import com.hust.soict.aims.controls.strategies.ProductDetailLoader;
 import com.hust.soict.aims.controls.strategies.ProductDetailLoaderFactory;
 import java.awt.image.BufferedImage;
@@ -231,21 +232,23 @@ public class ProductDetailScreen extends JDialog {
         detailScrollPane.getVerticalScrollBar().setUnitIncrement(16);
         mainPanel.add(detailScrollPane, BorderLayout.CENTER);
         
-        // Bottom: Close button
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        bottomPanel.setBackground(BACKGROUND_WHITE);
-        com.hust.soict.aims.utils.RoundedButton close = new com.hust.soict.aims.utils.RoundedButton("Close", 8);
-        close.setFont(FONT_BUTTON);
-        close.setBackground(PRIMARY_COLOR);
-        close.setForeground(TEXT_ON_PRIMARY);
-        close.setCursor(CURSOR_HAND);
-        close.setPreferredSize(BUTTON_SIZE_MEDIUM);
-        close.addActionListener(e -> setVisible(false));
-        bottomPanel.add(close);
+        // Close button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, SPACING_MEDIUM, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(PADDING_MEDIUM);
         
-        mainPanel.add(bottomPanel, BorderLayout.SOUTH);
+        RoundedButton closeButton = new RoundedButton("Close", 8);
+        closeButton.setFont(FONT_BUTTON);
+        closeButton.setBackground(PRIMARY_COLOR);
+        closeButton.setForeground(TEXT_ON_PRIMARY);
+        closeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        closeButton.setPreferredSize(new Dimension(120, 40));
+        closeButton.addActionListener(e -> setVisible(false));
+        
+        buttonPanel.add(closeButton);
         
         add(mainPanel, BorderLayout.CENTER);
+        add(buttonPanel, BorderLayout.SOUTH);
     }
     
     /**
