@@ -4,17 +4,44 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.utils.ImageUtils;
+import com.hust.soict.aims.utils.BarcodeGenerator;
+import com.hust.soict.aims.controls.strategies.ProductDetailLoader;
+import com.hust.soict.aims.controls.strategies.ProductDetailLoaderFactory;
+import java.awt.image.BufferedImage;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class ProductDetailScreen extends JDialog {
+    
+    /**
+     * Strategy Pattern & Factory Pattern Usage:
+     * 
+     * This constructor uses:
+     * 1. Factory Pattern (ProductDetailLoaderFactory) to get the appropriate loader
+     * 2. Strategy Pattern (ProductDetailLoader) to load and display product-specific details
+     * 
+     * The Strategy Pattern allows us to:
+     * - Encapsulate the algorithm for loading product details
+     * - Switch between different loading strategies at runtime
+     * - Add new product types without modifying this screen
+     * 
+     * The Factory Pattern allows us to:
+     * - Centralize the creation of loaders
+     * - Hide the complexity of selecting the right loader
+     */
     public ProductDetailScreen(Frame owner, Product p) {
         super(owner, "Product Details", true);
         setLayout(new BorderLayout(SPACING_MEDIUM, SPACING_MEDIUM));
         setSize(700, 600);
         setLocationRelativeTo(owner);
+        
+        // Strategy Pattern: Load full product details from database
+        Product productWithDetails = loadFullProductDetails(p);
         
         // Main content panel
         JPanel mainPanel = new JPanel(new BorderLayout(SPACING_MEDIUM, SPACING_MEDIUM));
@@ -39,14 +66,14 @@ public class ProductDetailScreen extends JDialog {
         imageLabel.setVerticalAlignment(SwingConstants.CENTER);
         
         // Get image path (use ImageUtils to get path from product ID)
-        String imagePath = p.getImagePath();
+        String imagePath = productWithDetails.getImagePath();
         if (imagePath == null || imagePath.isEmpty()) {
-            imagePath = ImageUtils.getProductImagePath(p.getId());
+            imagePath = ImageUtils.getProductImagePath(productWithDetails.getId());
         } else {
             // Verify the path exists, if not try to get from ID
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) {
-                imagePath = ImageUtils.getProductImagePath(p.getId());
+                imagePath = ImageUtils.getProductImagePath(productWithDetails.getId());
             }
         }
         
@@ -87,25 +114,41 @@ public class ProductDetailScreen extends JDialog {
         infoPanel.add(Box.createVerticalStrut(SPACING_SMALL));
         
         // Barcode
-        JPanel barcodePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        JPanel barcodePanel = new JPanel();
+        barcodePanel.setLayout(new BoxLayout(barcodePanel, BoxLayout.Y_AXIS));
         barcodePanel.setBackground(BACKGROUND_WHITE);
         barcodePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
         JLabel barcodeLabel = new JLabel("Barcode:");
         barcodeLabel.setFont(FONT_BODY);
         barcodeLabel.setForeground(TEXT_SECONDARY);
-        
-        JLabel barcodeValue = new JLabel(p.getBarcode() != null ? p.getBarcode() : String.valueOf(p.getId()));
-        barcodeValue.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_BODY));
-        barcodeValue.setForeground(TEXT_PRIMARY);
-        barcodeValue.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER_LIGHT, 1),
-            new EmptyBorder(5, 10, 5, 10)
-        ));
-        
+        barcodeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         barcodePanel.add(barcodeLabel);
-        barcodePanel.add(Box.createHorizontalStrut(SPACING_SMALL));
-        barcodePanel.add(barcodeValue);
+        barcodePanel.add(Box.createVerticalStrut(SPACING_XSMALL));
+        
+        // Generate and display barcode image
+        String barcodeText = productWithDetails.getBarcode() != null ? 
+                           productWithDetails.getBarcode() : 
+                           String.valueOf(productWithDetails.getId());
+        BufferedImage barcodeImage = BarcodeGenerator.generateBarcodeImageWithText(barcodeText, 280, 60, true);
+        
+        JLabel barcodeImageLabel = new JLabel();
+        if (barcodeImage != null) {
+            ImageIcon barcodeIcon = new ImageIcon(barcodeImage);
+            barcodeImageLabel.setIcon(barcodeIcon);
+        } else {
+            // Fallback to text if barcode generation fails
+            barcodeImageLabel.setText(barcodeText);
+            barcodeImageLabel.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_BODY));
+            barcodeImageLabel.setForeground(TEXT_PRIMARY);
+            barcodeImageLabel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                new EmptyBorder(5, 10, 5, 10)
+            ));
+        }
+        barcodeImageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        barcodePanel.add(barcodeImageLabel);
+        
         infoPanel.add(barcodePanel);
         infoPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
         
@@ -113,14 +156,14 @@ public class ProductDetailScreen extends JDialog {
         java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(java.util.Locale.getDefault());
         symbols.setGroupingSeparator(',');
         java.text.DecimalFormat df = new java.text.DecimalFormat("#,###", symbols);
-        JLabel priceLabel = new JLabel(String.format("Price: %s VND", df.format((long)p.getCurrentPrice())));
+        JLabel priceLabel = new JLabel(String.format("Price: %s VND", df.format((long)productWithDetails.getCurrentPrice())));
         priceLabel.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_PRODUCT_NAME));
         priceLabel.setForeground(PRIMARY_COLOR);
         priceLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         infoPanel.add(priceLabel);
         
-        if (p.getOriginalValue() > p.getCurrentPrice()) {
-            JLabel originalPriceLabel = new JLabel(String.format("Original: %s VND", df.format((long)p.getOriginalValue())));
+        if (productWithDetails.getOriginalValue() > productWithDetails.getCurrentPrice()) {
+            JLabel originalPriceLabel = new JLabel(String.format("Original: %s VND", df.format((long)productWithDetails.getOriginalValue())));
             originalPriceLabel.setFont(FONT_SMALL);
             originalPriceLabel.setForeground(TEXT_SECONDARY);
             originalPriceLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -129,8 +172,15 @@ public class ProductDetailScreen extends JDialog {
         
         infoPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
         
+        // Additional common info
+        addInfoRow(infoPanel, "Quantity:", String.valueOf(productWithDetails.getQuantity()));
+        addInfoRow(infoPanel, "Condition:", productWithDetails.getCondition());
+        addInfoRow(infoPanel, "Status:", productWithDetails.getStatus());
+        
+        infoPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
+        
         // Type
-        JLabel typeLabel = new JLabel("Type: " + getTypeName(p));
+        JLabel typeLabel = new JLabel("Type: " + getTypeName(productWithDetails));
         typeLabel.setFont(FONT_BODY);
         typeLabel.setForeground(TEXT_SECONDARY);
         typeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -154,67 +204,26 @@ public class ProductDetailScreen extends JDialog {
         ));
         
         // Common product info
-        addDetailRow(detailPanel, "Weight:", String.format("%.2f kg", p.getWeight()));
-        addDetailRow(detailPanel, "Dimension:", p.getDimension());
-        addDetailRow(detailPanel, "Description:", p.getDescription());
+        addDetailRow(detailPanel, "Weight:", String.format("%.2f kg", productWithDetails.getWeight()));
+        addDetailRow(detailPanel, "Dimension:", productWithDetails.getDimension());
+        if (productWithDetails.getHeight() != null && productWithDetails.getWidth() != null) {
+            String dimDetail = String.format("H: %.1f cm × W: %.1f cm", 
+                                           productWithDetails.getHeight(), 
+                                           productWithDetails.getWidth());
+            if (productWithDetails.getLength() != null) {
+                dimDetail += String.format(" × L: %.1f cm", productWithDetails.getLength());
+            }
+            addDetailRow(detailPanel, "Dimensions (H×W×L):", dimDetail);
+        }
+        addDetailRow(detailPanel, "Description:", productWithDetails.getDescription());
         detailPanel.add(Box.createVerticalStrut(SPACING_SMALL));
         
-        // Type-specific info
-        if (p instanceof Book) {
-            Book b = (Book) p;
-            addDetailRow(detailPanel, "Author:", b.getAuthor());
-            addDetailRow(detailPanel, "Cover:", b.getCoverType());
-            addDetailRow(detailPanel, "Publisher:", b.getPublisher());
-            addDetailRow(detailPanel, "Publication Date:", b.getPublicationDate());
-            if (b.getNumberOfPages() != null) {
-                addDetailRow(detailPanel, "Pages:", String.valueOf(b.getNumberOfPages()));
-            }
-            addDetailRow(detailPanel, "Language:", b.getLanguage());
-            addDetailRow(detailPanel, "Genre:", b.getGenre());
-        } else if (p instanceof Newspaper) {
-            Newspaper n = (Newspaper) p;
-            addDetailRow(detailPanel, "Editor in Chief:", n.getEditorInChief());
-            addDetailRow(detailPanel, "Publisher:", n.getPublisher());
-            addDetailRow(detailPanel, "Publication Date:", n.getPublicationDate());
-            addDetailRow(detailPanel, "Issue Number:", n.getIssueNumber());
-            addDetailRow(detailPanel, "Frequency:", n.getPublicationFrequency());
-            addDetailRow(detailPanel, "ISSN:", n.getIssn());
-            addDetailRow(detailPanel, "Language:", n.getLanguage());
-            addDetailRow(detailPanel, "Sections:", n.getSections());
-        } else if (p instanceof CD) {
-            CD c = (CD) p;
-            addDetailRow(detailPanel, "Album:", c.getAlbum());
-            addDetailRow(detailPanel, "Artist:", c.getArtist());
-            addDetailRow(detailPanel, "Record Label:", c.getRecordLabel());
-            addDetailRow(detailPanel, "Genre:", c.getGenre());
-            addDetailRow(detailPanel, "Release Date:", c.getReleaseDate());
-            List<String> tracks = c.getTrackList();
-            if (tracks != null && !tracks.isEmpty()) {
-                detailPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
-                JLabel tracksLabel = new JLabel("Track List:");
-                tracksLabel.setFont(FONT_BODY);
-                tracksLabel.setForeground(TEXT_PRIMARY);
-                tracksLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-                detailPanel.add(tracksLabel);
-                for (String t : tracks) {
-                    JLabel trackItem = new JLabel("  • " + t);
-                    trackItem.setFont(FONT_SMALL);
-                    trackItem.setForeground(TEXT_SECONDARY);
-                    trackItem.setAlignmentX(Component.LEFT_ALIGNMENT);
-                    detailPanel.add(trackItem);
-                }
-            }
-        } else if (p instanceof DVD) {
-            DVD d = (DVD) p;
-            addDetailRow(detailPanel, "Disc Type:", d.getDiscType());
-            addDetailRow(detailPanel, "Director:", d.getDirector());
-            String runtimeStr = d.getRuntime() != null ? d.getRuntime() + " min" : "N/A";
-            addDetailRow(detailPanel, "Runtime:", runtimeStr);
-            addDetailRow(detailPanel, "Studio:", d.getStudio());
-            addDetailRow(detailPanel, "Language:", d.getLanguage());
-            addDetailRow(detailPanel, "Subtitles:", d.getSubtitles());
-            addDetailRow(detailPanel, "Release Date:", d.getReleaseDate());
-            addDetailRow(detailPanel, "Genre:", d.getGenre());
+        // Strategy Pattern: Use the appropriate loader to display type-specific details
+        // Factory Pattern: Get the loader using the factory
+        ProductDetailLoader loader = ProductDetailLoaderFactory.getLoader(productWithDetails);
+        if (loader != null) {
+            // Strategy Pattern: Delegate to the specific strategy to display details
+            loader.displayDetails(detailPanel, productWithDetails);
         }
         
         JScrollPane detailScrollPane = new JScrollPane(detailPanel);
@@ -239,7 +248,60 @@ public class ProductDetailScreen extends JDialog {
         add(mainPanel, BorderLayout.CENTER);
     }
     
-    private void addDetailRow(JPanel panel, String label, String value) {
+    /**
+     * Strategy Pattern: Load full product details from database
+     * 
+     * This method uses:
+     * 1. Factory Pattern to get the appropriate loader
+     * 2. Strategy Pattern to load product-specific details by joining with type-specific tables
+     */
+    private Product loadFullProductDetails(Product product) {
+        String dbUrl = "jdbc:sqlite:aims.db";
+        
+        try (Connection conn = DriverManager.getConnection(dbUrl)) {
+            // Factory Pattern: Get the appropriate loader for this product type
+            ProductDetailLoader loader = ProductDetailLoaderFactory.getLoader(product);
+            
+            if (loader != null) {
+                // Strategy Pattern: Use the specific strategy to load details
+                // This will join with the appropriate table (Book, CD, DVD, Newspaper, Track)
+                return loader.loadDetails(conn, product);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading product details: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Return original product if loading fails
+        return product;
+    }
+    
+    /**
+     * Helper method to add info row in the info panel (top section)
+     */
+    private void addInfoRow(JPanel panel, String label, String value) {
+        if (value == null || value.isEmpty()) return;
+        
+        JLabel infoLabel = new JLabel(label + " " + value);
+        infoLabel.setFont(FONT_SMALL);
+        infoLabel.setForeground(TEXT_SECONDARY);
+        infoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(infoLabel);
+    }
+    
+    private String getTypeName(Product p) {
+        if (p instanceof Book) return "Book";
+        if (p instanceof CD) return "CD";
+        if (p instanceof DVD) return "DVD";
+        if (p instanceof Newspaper) return "Newspaper";
+        return "Product";
+    }
+    
+    /**
+     * Static method to add detail row - used by Strategy Pattern implementations
+     * This allows the strategy classes to add rows to the detail panel
+     */
+    public static void addDetailRow(JPanel panel, String label, String value) {
         if (value == null || value.isEmpty()) return;
         
         JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -259,13 +321,5 @@ public class ProductDetailScreen extends JDialog {
         row.add(valueComp);
         panel.add(row);
         panel.add(Box.createVerticalStrut(SPACING_XSMALL));
-    }
-    
-    private String getTypeName(Product p) {
-        if (p instanceof Book) return "Book";
-        if (p instanceof CD) return "CD";
-        if (p instanceof DVD) return "DVD";
-        if (p instanceof Newspaper) return "Newspaper";
-        return "Product";
     }
 }

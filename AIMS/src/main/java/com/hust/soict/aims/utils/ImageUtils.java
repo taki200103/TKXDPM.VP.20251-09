@@ -8,7 +8,7 @@ import java.io.File;
 public class ImageUtils {
     private static final String IMAGES_FOLDER = "src/main/resources/images/products";
     private static final String COMMON_IMAGES_FOLDER = "src/main/resources/images/common";
-    private static final String IMAGE_EXTENSION = ".png";
+    private static final String IMAGE_EXTENSION = ".jpg";
     
     /**
      * Get image path for a product based on its ID

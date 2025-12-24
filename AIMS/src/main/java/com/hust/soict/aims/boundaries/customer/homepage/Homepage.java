@@ -119,11 +119,11 @@ public class Homepage extends BaseScreenHandler {
 
         headerPanel.add(leftPanel, BorderLayout.WEST);
 
-        // Right: Login and Cart buttons
+        // Right: Cart and Login buttons (Cart first, Login second)
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, SPACING_SMALL, 0));
         rightPanel.setOpaque(false);
-        rightPanel.add(loginButton);
         rightPanel.add(cartButton);
+        rightPanel.add(loginButton);
 
         headerPanel.add(rightPanel, BorderLayout.EAST);
 
@@ -287,9 +287,16 @@ public class Homepage extends BaseScreenHandler {
 
     /**
      * Get cart button text with icon and item count
+     * If count > 0, the count will be displayed in red color
      */
     private String getCartButtonText() {
-        return String.format("Cart (%d)", cartController.getTotalQuantity());
+        int count = cartController.getTotalQuantity();
+        if (count > 0) {
+            // Use HTML to display count in red color
+            return String.format("<html>Cart <font color='#E74C3C'>(%d)</font></html>", count);
+        } else {
+            return "Cart (0)";
+        }
     }
 
     /**
