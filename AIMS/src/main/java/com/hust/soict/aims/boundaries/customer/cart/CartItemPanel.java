@@ -6,13 +6,19 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import com.hust.soict.aims.entities.CartItem;
 import com.hust.soict.aims.entities.Product;
-import com.hust.soict.aims.components.IconButton;
+import com.hust.soict.aims.boundaries.ProductDetailScreen;
 import com.hust.soict.aims.components.ProductImagePanel;
+import com.hust.soict.aims.components.RoundedButton;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class CartItemPanel extends JPanel {
 
-    private static final Dimension QTY_SIZE = new Dimension(32, 24);
+    private static final Dimension QTY_SIZE = new Dimension(60, 40);
+    private static final Dimension QTY_BUTTON = new Dimension(100, 40);
+    private static final Dimension SUBTOTAL_SIZE = new Dimension(100, 40);
+    private static final Dimension REMOVE_BUTTON = new Dimension(100, 40);
     private static final Color QTY_BG = new Color(245, 245, 245);
     private static final Color QTY_BORDER = new Color(220, 220, 220);
     private Product product;
@@ -26,6 +32,7 @@ public class CartItemPanel extends JPanel {
         this.product = cartItem.getProduct();
         this.quantity = cartItem.getQuantity();
         initUI();
+        initClickListener();
     }
 
     private void initUI() {
@@ -41,11 +48,25 @@ public class CartItemPanel extends JPanel {
         add(createActionPanel(), BorderLayout.EAST);
     }
 
+    private void initClickListener() {
+        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (isClickOnActionArea(e))
+                    return;
+
+                Window owner = SwingUtilities.getWindowAncestor(CartItemPanel.this);
+                if (owner instanceof Frame frame) {
+                    ProductDetailScreen detailScreen = new ProductDetailScreen(frame, product);
+                    detailScreen.setVisible(true);
+                }
+            }
+        });
+    }
+
     private JComponent createImagePanel() {
-        return new ProductImagePanel(
-                product.getImagePath(),
-                product.getId(),
-                70);
+        return new ProductImagePanel(product.getImagePath(), product.getId(), 70);
     }
 
     private JPanel createInfoPanel() {
@@ -80,30 +101,36 @@ public class CartItemPanel extends JPanel {
     }
 
     private JPanel createPriceQtyPanel() {
-        JPanel panel = createVerticalPanel();
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+
+        JPanel qtyPanel = createQuantityPanel();
 
         subtotalLabel = new JLabel(formatSubtotal());
         subtotalLabel.setFont(FONT_BUTTON_LARGE);
-        subtotalLabel.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        subtotalLabel.setPreferredSize(SUBTOTAL_SIZE);
+        subtotalLabel.setMinimumSize(SUBTOTAL_SIZE);
 
-        JPanel qtyPanel = createQuantityPanel();
-        qtyPanel.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
 
-        panel.add(Box.createVerticalGlue());
-        panel.add(subtotalLabel);
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(qtyPanel);
-        panel.add(Box.createVerticalGlue());
+        gbc.gridx = 0;
+        panel.add(qtyPanel, gbc);
+
+        gbc.gridx = 1;
+        gbc.insets = new Insets(0, 12, 0, 0);
+        panel.add(subtotalLabel, gbc);
 
         return panel;
     }
 
     private JPanel createQuantityPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
         panel.setOpaque(false);
 
-        JButton left = createArrowButton("/icons/left_arrow.png", -1);
-        JButton right = createArrowButton("/icons/right_arrow.png", 1);
+        JButton left = createArrowButton("Decrease", -1);
+        JButton right = createArrowButton("Increase", 1);
 
         qtyLabel = createQtyLabel();
 
@@ -116,7 +143,7 @@ public class CartItemPanel extends JPanel {
 
     private JLabel createQtyLabel() {
         JLabel label = new JLabel(String.valueOf(quantity), SwingConstants.CENTER);
-        label.setFont(FONT_BODY);
+        label.setFont(FONT_BUTTON_LARGE);
         label.setOpaque(true);
         label.setBackground(QTY_BG);
         label.setBorder(BorderFactory.createLineBorder(QTY_BORDER));
@@ -125,14 +152,24 @@ public class CartItemPanel extends JPanel {
         return label;
     }
 
-    private JButton createArrowButton(String icon, int delta) {
-        JButton btn = new IconButton(icon, 16, PRIMARY_COLOR.brighter());
+    private JButton createArrowButton(String text, int delta) {
+        JButton btn = new RoundedButton(text);
+        btn.setFont(FONT_BUTTON);
+        btn.setBackground(PRIMARY_COLOR);
+        btn.setForeground(TEXT_ON_PRIMARY);
+        btn.setCursor(CURSOR_HAND);
+        btn.setPreferredSize(QTY_BUTTON);
         btn.addActionListener(e -> updateQuantity(quantity + delta));
         return btn;
     }
 
     private JButton createRemoveButton() {
-        JButton btn = new IconButton("/icons/trash.png", 18, PRIMARY_COLOR.brighter());
+        JButton btn = new RoundedButton("Remove");
+        btn.setFont(FONT_BUTTON);
+        btn.setBackground(DANGER_COLOR);
+        btn.setForeground(TEXT_ON_PRIMARY);
+        btn.setCursor(CURSOR_HAND);
+        btn.setPreferredSize(REMOVE_BUTTON);
         btn.addActionListener(e -> fireRemoveEvent(e));
         return btn;
     }
@@ -149,14 +186,12 @@ public class CartItemPanel extends JPanel {
     }
 
     private String formatSubtotal() {
-        return String.format("$%.2f",
-                product.getCurrentPrice() * quantity);
+        return String.format("$%.2f", product.getCurrentPrice() * quantity);
     }
 
     private void fireQuantityChanged() {
         if (onQuantityChanged != null) {
-            onQuantityChanged.actionPerformed(
-                    new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "quantityChanged"));
+            onQuantityChanged.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "quantityChanged"));
         }
     }
 
@@ -176,6 +211,11 @@ public class CartItemPanel extends JPanel {
 
     public void setOnRemove(ActionListener listener) {
         this.onRemove = listener;
+    }
+
+    private boolean isClickOnActionArea(MouseEvent e) {
+        Component c = SwingUtilities.getDeepestComponentAt(CartItemPanel.this, e.getX(), e.getY());
+        return c instanceof JButton;
     }
 
     private JPanel createVerticalPanel() {
