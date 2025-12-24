@@ -3,12 +3,12 @@ package com.hust.soict.aims.entities;
 import java.util.List;
 
 public class CD extends Product {
-    private String album;
+    private String album; // music_type in DB
     private String artist;
     private String recordLabel;
     private String genre;
     private String releaseDate; // optional
-    private List<String> trackList; // optional
+    private List<String> trackList; // optional - stored in Track table
 
     public CD() {}
 

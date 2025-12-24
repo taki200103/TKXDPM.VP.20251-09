@@ -3,10 +3,10 @@ package com.hust.soict.aims.entities;
 public class DVD extends Product {
     private String discType; // Blu-ray, HD-DVD
     private String director;
-    private String runtime;
+    private Integer runtime; // INTEGER in DB (minutes)
     private String studio;
     private String language;
-    private String subtitles;
+    private String subtitles; // subtitle in DB
     private String releaseDate;
     private String genre;
 
@@ -23,8 +23,29 @@ public class DVD extends Product {
     public void setDiscType(String discType) { this.discType = discType; }
     public String getDirector() { return director; }
     public void setDirector(String director) { this.director = director; }
-    public String getRuntime() { return runtime; }
-    public void setRuntime(String runtime) { this.runtime = runtime; }
+    public Integer getRuntime() { return runtime; }
+    public void setRuntime(Integer runtime) { this.runtime = runtime; }
+    // Legacy method for backward compatibility
+    public void setRuntime(String runtime) { 
+        if (runtime != null) {
+            // Try to extract number from "120min" or similar
+            String numStr = runtime.replaceAll("[^0-9]", "");
+            if (!numStr.isEmpty()) {
+                try {
+                    this.runtime = Integer.parseInt(numStr);
+                } catch (NumberFormatException ignored) {
+                    this.runtime = null;
+                }
+            } else {
+                this.runtime = null;
+            }
+        } else {
+            this.runtime = null;
+        }
+    }
+    public String getRuntimeString() {
+        return runtime != null ? runtime + "min" : null;
+    }
     public String getStudio() { return studio; }
     public void setStudio(String studio) { this.studio = studio; }
     public String getLanguage() { return language; }
