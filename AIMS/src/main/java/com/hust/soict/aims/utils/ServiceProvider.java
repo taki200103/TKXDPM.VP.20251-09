@@ -1,7 +1,7 @@
 package com.hust.soict.aims.utils;
 
 import com.hust.soict.aims.controls.PayByCreditCardController;
-import com.hust.soict.aims.subsystems.vietqr.VietQRController;
+import com.hust.soict.aims.subsystems.oldvietqr.VietQRController;
 import com.hust.soict.aims.controls.IPaymentQRCode;
 
 /**
