@@ -1,6 +1,7 @@
 ﻿# TKXDPM.VP.20251-09
-Hoàng: code BE (50%) Đạt(20%),Nam(30%): sua class Diagram <br>
-
+Hoàng: Place Order, View product
+Dat:	Payoder by vietqr,payorder by paypal
+Nam: Add/Update and product
 
 
 
