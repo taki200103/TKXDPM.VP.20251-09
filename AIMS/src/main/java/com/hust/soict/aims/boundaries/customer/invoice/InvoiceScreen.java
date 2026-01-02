@@ -127,8 +127,7 @@ public class InvoiceScreen extends BaseScreenHandler {
     protected void bindEvents() {
         payButton.addActionListener(e -> {
             // Navigate to PaymentScreen
-            PaymentScreen paymentScreen = new PaymentScreen(
-                    this, invoice, placeOrderController, cartController);
+            PaymentScreen paymentScreen = new PaymentScreen(this, invoice, placeOrderController, cartController);
             navigateTo(paymentScreen);
         });
     }

@@ -10,12 +10,13 @@ import com.hust.soict.aims.controls.IPaymentQRCode;
  */
 public class ServiceProvider {
     private static ServiceProvider instance;
-    
+
     private PayByCreditCardController creditCardController;
     private IPaymentQRCode qrPaymentController;
-    
-    private ServiceProvider() {}
-    
+
+    private ServiceProvider() {
+    }
+
     /**
      * Get singleton instance
      */
@@ -25,29 +26,31 @@ public class ServiceProvider {
         }
         return instance;
     }
-    
+
     /**
      * Initialize with payment controllers
      * Should be called once at application startup
+     * 
      * @param creditCardController Credit card payment controller (from Spring)
      */
     public void initialize(PayByCreditCardController creditCardController) {
         this.creditCardController = creditCardController;
-        
-        // Initialize QR payment controller with credentials and bank account info from config
+
+        // Initialize QR payment controller with credentials and bank account info from
+        // config
         String vietqrUsername = ConfigLoader.getVietQRUsername();
         String vietqrPassword = ConfigLoader.getVietQRPassword();
         String bankCode = ConfigLoader.getVietQRBankCode();
         String bankAccount = ConfigLoader.getVietQRBankAccount();
         String userBankName = ConfigLoader.getVietQRUserBankName();
-        
+
         this.qrPaymentController = new VietQRController(
-            vietqrUsername, vietqrPassword, bankCode, bankAccount, userBankName
-        );
+                vietqrUsername, vietqrPassword, bankCode, bankAccount, userBankName);
     }
-    
+
     /**
      * Get credit card payment controller
+     * 
      * @return PayByCreditCardController for PayPal integration
      */
     public PayByCreditCardController getCreditCardController() {
@@ -56,9 +59,10 @@ public class ServiceProvider {
         }
         return creditCardController;
     }
-    
+
     /**
      * Get QR code payment controller
+     * 
      * @return IPaymentQRCode implementation (VietQR)
      */
     public IPaymentQRCode getQRPaymentController() {
@@ -68,4 +72,3 @@ public class ServiceProvider {
         return qrPaymentController;
     }
 }
-
