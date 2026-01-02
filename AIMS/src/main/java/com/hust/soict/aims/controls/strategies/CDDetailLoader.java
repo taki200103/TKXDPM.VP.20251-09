@@ -4,10 +4,14 @@ import com.hust.soict.aims.entities.CD;
 import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.entities.Track;
 import com.hust.soict.aims.boundaries.ProductDetailScreen;
+import com.hust.soict.aims.controls.Database;
 import javax.swing.JPanel;
 import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JLabel;
+import javax.swing.BorderFactory;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -122,22 +126,87 @@ public class CDDetailLoader implements ProductDetailLoader {
         ProductDetailScreen.addDetailRow(detailPanel, "Genre:", cd.getGenre());
         ProductDetailScreen.addDetailRow(detailPanel, "Release Date:", cd.getReleaseDate());
         
-        // Display track list
-        List<String> tracks = cd.getTrackList();
+        // Display track list with full information
+        detailPanel.add(Box.createVerticalStrut(SPACING_SMALL));
+        JLabel tracksLabel = new JLabel("Track List:");
+        tracksLabel.setFont(FONT_BODY);
+        tracksLabel.setForeground(PRIMARY_COLOR);
+        tracksLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detailPanel.add(tracksLabel);
+        detailPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
+        
+        // Load tracks from database to display full information
+        List<Track> tracks = Database.loadTracks(cd.getId());
         if (tracks != null && !tracks.isEmpty()) {
-            detailPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
-            JLabel tracksLabel = new JLabel("Track List:");
-            tracksLabel.setFont(FONT_BODY);
-            tracksLabel.setForeground(TEXT_PRIMARY);
-            tracksLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            detailPanel.add(tracksLabel);
+            // Create a panel for track list with better formatting
+            JPanel trackListPanel = new JPanel();
+            trackListPanel.setLayout(new BoxLayout(trackListPanel, BoxLayout.Y_AXIS));
+            trackListPanel.setOpaque(false);
+            trackListPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            trackListPanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                    BorderFactory.createEmptyBorder(SPACING_SMALL, SPACING_MEDIUM, SPACING_SMALL, SPACING_MEDIUM)));
             
-            for (String track : tracks) {
-                JLabel trackItem = new JLabel("  • " + track);
-                trackItem.setFont(FONT_SMALL);
-                trackItem.setForeground(TEXT_SECONDARY);
-                trackItem.setAlignmentX(Component.LEFT_ALIGNMENT);
-                detailPanel.add(trackItem);
+            for (Track track : tracks) {
+                JPanel trackRow = new JPanel();
+                trackRow.setLayout(new BoxLayout(trackRow, BoxLayout.X_AXIS));
+                trackRow.setOpaque(false);
+                trackRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+                trackRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+                
+                // Track number (orange color, bold)
+                Integer trackNumber = track.getTrackNumber();
+                String trackNumText = trackNumber != null ? String.valueOf(trackNumber) : "?";
+                JLabel numberLabel = new JLabel("Track #" + trackNumText + ":");
+                numberLabel.setFont(new java.awt.Font(FONT_FAMILY, java.awt.Font.BOLD, FONT_SIZE_BODY));
+                numberLabel.setForeground(PRIMARY_COLOR);
+                numberLabel.setPreferredSize(new Dimension(90, 25));
+                trackRow.add(numberLabel);
+                trackRow.add(Box.createHorizontalStrut(SPACING_SMALL));
+                
+                // Title
+                String title = track.getTitle() != null ? track.getTitle() : "";
+                JLabel titleLabel = new JLabel(title);
+                titleLabel.setFont(FONT_BODY);
+                titleLabel.setForeground(TEXT_PRIMARY);
+                titleLabel.setPreferredSize(new Dimension(300, 25));
+                trackRow.add(titleLabel);
+                trackRow.add(Box.createHorizontalStrut(SPACING_MEDIUM));
+                
+                // Length
+                if (track.getLength() != null) {
+                    int minutes = track.getLength() / 60;
+                    int seconds = track.getLength() % 60;
+                    String lengthText = String.format("%d:%02d", minutes, seconds);
+                    JLabel lengthLabel = new JLabel("(" + lengthText + ")");
+                    lengthLabel.setFont(FONT_SMALL);
+                    lengthLabel.setForeground(TEXT_SECONDARY);
+                    trackRow.add(lengthLabel);
+                }
+                
+                trackRow.add(Box.createHorizontalGlue());
+                trackListPanel.add(trackRow);
+                trackListPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
+            }
+            
+            detailPanel.add(trackListPanel);
+        } else {
+            // Fallback to trackList if database tracks not available
+            List<String> trackList = cd.getTrackList();
+            if (trackList != null && !trackList.isEmpty()) {
+                for (String track : trackList) {
+                    JLabel trackItem = new JLabel("  • " + track);
+                    trackItem.setFont(FONT_SMALL);
+                    trackItem.setForeground(TEXT_SECONDARY);
+                    trackItem.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    detailPanel.add(trackItem);
+                }
+            } else {
+                JLabel noTracksLabel = new JLabel("  No tracks available");
+                noTracksLabel.setFont(FONT_SMALL);
+                noTracksLabel.setForeground(TEXT_SECONDARY);
+                noTracksLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                detailPanel.add(noTracksLabel);
             }
         }
     }

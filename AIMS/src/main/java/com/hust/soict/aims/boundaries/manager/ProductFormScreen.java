@@ -9,6 +9,7 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.controls.Database;
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.entities.enums.*;
+import com.hust.soict.aims.entities.Track;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.components.RoundedPanel;
 import com.hust.soict.aims.utils.ImageUtils;
@@ -37,6 +38,12 @@ public class ProductFormScreen extends BaseScreenHandler {
     // Type-specific fields
     private JPanel typeSpecificPanel;
     private List<JComponent> typeSpecificFields;
+    
+    // Track list management for CD
+    private JPanel trackListPanel;
+    private List<TrackRow> trackRows;
+    private JPanel trackSectionPanel; // Track list section panel
+    private JPanel mainContentPanel; // Reference to main content panel for dynamic section management
     
     // Image upload fields
     private File selectedImageFile;
@@ -107,6 +114,12 @@ public class ProductFormScreen extends BaseScreenHandler {
         typeSpecificPanel.setOpaque(false);
         typeSpecificFields = new ArrayList<>();
         
+        // Initialize track list management
+        trackListPanel = new JPanel();
+        trackListPanel.setLayout(new BoxLayout(trackListPanel, BoxLayout.Y_AXIS));
+        trackListPanel.setOpaque(false);
+        trackRows = new ArrayList<>();
+        
         // Initialize image upload components
         selectedImageFile = null;
         imagePreviewLabel = new JLabel();
@@ -132,7 +145,10 @@ public class ProductFormScreen extends BaseScreenHandler {
         uploadImageButton.addActionListener(e -> selectImageFile());
         
         // Update type-specific fields when type changes
-        typeComboBox.addActionListener(e -> updateTypeSpecificFields());
+        typeComboBox.addActionListener(e -> {
+            updateTypeSpecificFields();
+            updateTrackListSectionVisibility();
+        });
         
         if (product != null) {
             loadProductData();
@@ -155,6 +171,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         mainPanel.setBackground(BACKGROUND_WHITE);
+        mainContentPanel = mainPanel; // Store reference
 
         // Title
         JLabel titleLabel = new JLabel(product == null ? "Add New Product" : "Edit Product");
@@ -232,6 +249,14 @@ public class ProductFormScreen extends BaseScreenHandler {
         JPanel typeSectionPanel = createSectionPanel("Type-Specific Information");
         typeSectionPanel.add(typeSpecificPanel);
         mainPanel.add(typeSectionPanel);
+        
+        // Section 5: Track List (only for CD) - will be shown/hidden dynamically
+        trackSectionPanel = createTrackListSection();
+        String currentType = product != null ? product.getType() : (String) typeComboBox.getSelectedItem();
+        if (currentType != null && currentType.equals("cd")) {
+            mainPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
+            mainPanel.add(trackSectionPanel);
+        }
 
         // Buttons panel at bottom
         JPanel bottomButtonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, SPACING_MEDIUM, 0));
@@ -433,11 +458,58 @@ public class ProductFormScreen extends BaseScreenHandler {
         typeSpecificPanel.revalidate();
         typeSpecificPanel.repaint();
         
+        // Update track list section visibility
+        updateTrackListSectionVisibility();
+        
         // Repaint parent to update scroll
         SwingUtilities.invokeLater(() -> {
             revalidate();
             repaint();
         });
+    }
+    
+    /**
+     * Update track list section visibility based on product type
+     */
+    private void updateTrackListSectionVisibility() {
+        if (trackSectionPanel == null || mainContentPanel == null) {
+            return;
+        }
+        
+        String type = (String) typeComboBox.getSelectedItem();
+        Container parent = trackSectionPanel.getParent();
+        
+        if (type != null && type.equals("cd")) {
+            // Show track section if not already visible
+            if (parent == null) {
+                mainContentPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
+                mainContentPanel.add(trackSectionPanel);
+            }
+            trackSectionPanel.setVisible(true);
+        } else {
+            // Hide track section
+            if (parent != null) {
+                // Remove spacing before track section if exists
+                int trackIndex = -1;
+                Component[] components = parent.getComponents();
+                for (int i = 0; i < components.length; i++) {
+                    if (components[i] == trackSectionPanel) {
+                        trackIndex = i;
+                        break;
+                    }
+                }
+                if (trackIndex > 0 && components[trackIndex - 1] instanceof Box.Filler) {
+                    parent.remove(components[trackIndex - 1]);
+                }
+                parent.remove(trackSectionPanel);
+            }
+            trackSectionPanel.setVisible(false);
+        }
+        
+        if (mainContentPanel != null) {
+            mainContentPanel.revalidate();
+            mainContentPanel.repaint();
+        }
     }
 
     private void loadProductData() {
@@ -492,6 +564,8 @@ public class ProductFormScreen extends BaseScreenHandler {
             setTypeField(fieldIndex++, c.getRecordLabel());
             setTypeField(fieldIndex++, c.getGenre());
             setTypeField(fieldIndex++, c.getReleaseDate());
+            // Load track list
+            loadTrackList();
         } else if (type.equals("dvd") && product instanceof DVD) {
             DVD d = (DVD) product;
             // Set disc type dropdown
@@ -634,10 +708,21 @@ public class ProductFormScreen extends BaseScreenHandler {
             Product newProduct = createProductFromFields(type, originalValue, currentPrice, weight, dimension,
                     description, barcode, condition, status, quantity);
 
+            // Save tracks if CD
+            List<Track> tracksToSave = null;
+            if (type.equals("cd")) {
+                tracksToSave = getTrackList();
+            }
+            
             if (product == null) {
                 // Add new product
                 long newId = Database.addProduct(newProduct);
                 if (newId > 0) {
+                    // Save tracks for CD
+                    if (tracksToSave != null && !tracksToSave.isEmpty()) {
+                        Database.saveTracks(newId, tracksToSave);
+                    }
+                    
                     // Save image if one was selected
                     if (selectedImageFile != null) {
                         ImageUtils.saveProductImage(selectedImageFile, newId);
@@ -662,6 +747,11 @@ public class ProductFormScreen extends BaseScreenHandler {
                 // Update existing product
                 newProduct.setId(product.getId());
                 if (Database.updateProduct(newProduct)) {
+                    // Save tracks for CD
+                    if (tracksToSave != null) {
+                        Database.saveTracks(product.getId(), tracksToSave);
+                    }
+                    
                     // Save image if one was selected
                     if (selectedImageFile != null) {
                         ImageUtils.saveProductImage(selectedImageFile, product.getId());
@@ -726,7 +816,14 @@ public class ProductFormScreen extends BaseScreenHandler {
                 c.setQuantity(quantity);
                 if (condition != null) c.setCondition(condition.getValue());
                 if (status != null) c.setStatus(status.getValue());
+                // Store track list for saving
+                List<Track> tracks = getTrackList();
+                c.setTrackList(new ArrayList<>()); // Will be populated from tracks
                 p = c;
+                // Store tracks in a temporary field for later saving
+                if (p instanceof CD) {
+                    ((CD) p).setTrackList(new ArrayList<>());
+                }
                 break;
             }
             case "dvd": {
@@ -849,6 +946,301 @@ public class ProductFormScreen extends BaseScreenHandler {
                 displayImagePreview(imageFile);
                 // Don't set selectedImageFile here - only set it when user explicitly selects a new image
             }
+        }
+    }
+
+    /**
+     * Create track list section for CD products
+     * This creates a separate section panel similar to "Type-Specific Information"
+     */
+    private JPanel createTrackListSection() {
+        // Create section panel with border and title
+        JPanel sectionPanel = createSectionPanel("Track List");
+        
+        // Track list container with scroll
+        trackListPanel.removeAll();
+        trackRows.clear();
+        trackListPanel.setLayout(new BoxLayout(trackListPanel, BoxLayout.Y_AXIS));
+        trackListPanel.setBackground(BACKGROUND_WHITE);
+        
+        JScrollPane scrollPane = new JScrollPane(trackListPanel);
+        scrollPane.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)));
+        scrollPane.setPreferredSize(new Dimension(500, 200));
+        scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 200));
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sectionPanel.add(scrollPane);
+        sectionPanel.add(Box.createVerticalStrut(SPACING_SMALL));
+        
+        // Add track button - centered
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        RoundedButton addTrackButton = new RoundedButton("+ Add Track", 8);
+        addTrackButton.setFont(FONT_BUTTON);
+        addTrackButton.setBackground(SUCCESS_COLOR);
+        addTrackButton.setForeground(TEXT_ON_PRIMARY);
+        addTrackButton.setCursor(CURSOR_HAND);
+        addTrackButton.setPreferredSize(new Dimension(150, 35));
+        buttonPanel.add(addTrackButton);
+        addTrackButton.addActionListener(e -> addTrackRow());
+        sectionPanel.add(buttonPanel);
+        
+        return sectionPanel;
+    }
+    
+    /**
+     * Add a new track row
+     */
+    private void addTrackRow() {
+        TrackRow trackRow = new TrackRow(trackRows.size() + 1);
+        trackRows.add(trackRow);
+        trackListPanel.add(trackRow.getPanel());
+        trackListPanel.revalidate();
+        trackListPanel.repaint();
+    }
+    
+    /**
+     * Remove a track row
+     */
+    private void removeTrackRow(TrackRow trackRow) {
+        trackRows.remove(trackRow);
+        trackListPanel.remove(trackRow.getPanel());
+        // Update track numbers
+        for (int i = 0; i < trackRows.size(); i++) {
+            trackRows.get(i).setTrackNumber(i + 1);
+        }
+        trackListPanel.revalidate();
+        trackListPanel.repaint();
+    }
+    
+    /**
+     * Load track list from CD product
+     */
+    private void loadTrackList() {
+        if (product == null || !(product instanceof CD)) {
+            return;
+        }
+        
+        CD cd = (CD) product;
+        
+        // Try to load tracks from database first
+        List<Track> tracks = Database.loadTracks(cd.getId());
+        
+        // If no tracks from database, try from trackList (for backward compatibility)
+        if (tracks == null || tracks.isEmpty()) {
+            List<String> trackList = cd.getTrackList();
+            if (trackList != null && !trackList.isEmpty()) {
+                tracks = new ArrayList<>();
+                for (int i = 0; i < trackList.size(); i++) {
+                    String trackInfo = trackList.get(i);
+                    // Parse track info (format: "Title (M:SS)" or just "Title")
+                    String title = trackInfo;
+                    Integer length = null;
+                    
+                    if (trackInfo.contains("(") && trackInfo.contains(")")) {
+                        int start = trackInfo.indexOf("(");
+                        int end = trackInfo.indexOf(")");
+                        if (start > 0 && end > start) {
+                            title = trackInfo.substring(0, start).trim();
+                            String timeStr = trackInfo.substring(start + 1, end).trim();
+                            // Parse time format "M:SS" to seconds
+                            if (timeStr.contains(":")) {
+                                String[] parts = timeStr.split(":");
+                                try {
+                                    int minutes = Integer.parseInt(parts[0]);
+                                    int seconds = Integer.parseInt(parts[1]);
+                                    length = minutes * 60 + seconds;
+                                } catch (NumberFormatException ignored) {}
+                            }
+                        }
+                    }
+                    
+                    Track track = new Track();
+                    track.setTitle(title);
+                    track.setLength(length);
+                    track.setTrackNumber(i + 1);
+                    tracks.add(track);
+                }
+            }
+        }
+        
+        // Display tracks in UI
+        if (tracks != null && !tracks.isEmpty()) {
+            trackRows.clear();
+            trackListPanel.removeAll();
+            
+            for (Track track : tracks) {
+                TrackRow trackRow = new TrackRow(
+                    track.getTrackNumber() != null ? track.getTrackNumber() : trackRows.size() + 1,
+                    track.getTitle(),
+                    track.getLength()
+                );
+                trackRows.add(trackRow);
+                trackListPanel.add(trackRow.getPanel());
+            }
+            
+            trackListPanel.revalidate();
+            trackListPanel.repaint();
+        }
+    }
+    
+    /**
+     * Get track list from UI
+     * Returns list of Track objects with title, length, and track_number set
+     */
+    private List<Track> getTrackList() {
+        List<Track> tracks = new ArrayList<>();
+        int trackNumber = 1;
+        for (TrackRow row : trackRows) {
+            String title = row.getTitle();
+            Integer length = row.getLength();
+            
+            if (title != null && !title.trim().isEmpty()) {
+                Track track = new Track();
+                track.setTitle(title.trim());
+                track.setLength(length);
+                track.setTrackNumber(trackNumber);
+                // mediaId will be set when saving to database
+                tracks.add(track);
+                trackNumber++;
+            }
+        }
+        return tracks;
+    }
+    
+    /**
+     * Inner class to represent a track row in the UI
+     */
+    private class TrackRow {
+        private JPanel panel;
+        private JTextField titleField;
+        private JTextField lengthField;
+        private int trackNumber;
+        
+        public TrackRow(int trackNumber) {
+            this(trackNumber, "", null);
+        }
+        
+        public TrackRow(int trackNumber, String title, Integer length) {
+            this.trackNumber = trackNumber;
+            
+            panel = new JPanel(new BorderLayout(SPACING_SMALL, 0));
+            panel.setOpaque(false);
+            panel.setBorder(BorderFactory.createEmptyBorder(SPACING_XSMALL, 0, SPACING_XSMALL, 0));
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+            panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+            
+            // Left panel with track number and labels
+            JPanel leftPanel = new JPanel();
+            leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.X_AXIS));
+            leftPanel.setOpaque(false);
+            
+            // Track number label (orange color) - displayed prominently
+            JLabel numberLabel = new JLabel("Track #" + trackNumber + ":");
+            numberLabel.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_BODY));
+            numberLabel.setForeground(PRIMARY_COLOR);
+            numberLabel.setPreferredSize(new Dimension(80, 30));
+            leftPanel.add(numberLabel);
+            leftPanel.add(Box.createHorizontalStrut(SPACING_SMALL));
+            
+            // Title label
+            JLabel titleLabel = new JLabel("Title:");
+            titleLabel.setFont(FONT_SMALL);
+            titleLabel.setForeground(TEXT_SECONDARY);
+            titleLabel.setPreferredSize(new Dimension(50, 30));
+            leftPanel.add(titleLabel);
+            leftPanel.add(Box.createHorizontalStrut(SPACING_XSMALL));
+            
+            // Title field
+            titleField = new JTextField(title);
+            titleField.setFont(FONT_BODY);
+            titleField.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 10)));
+            titleField.setPreferredSize(new Dimension(250, 30));
+            leftPanel.add(titleField);
+            
+            panel.add(leftPanel, BorderLayout.CENTER);
+            
+            // Right panel with length and remove button
+            JPanel rightPanel = new JPanel();
+            rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.X_AXIS));
+            rightPanel.setOpaque(false);
+            
+            // Length label
+            JLabel lengthLabel = new JLabel("Length:");
+            lengthLabel.setFont(FONT_SMALL);
+            lengthLabel.setForeground(TEXT_SECONDARY);
+            lengthLabel.setPreferredSize(new Dimension(60, 30));
+            rightPanel.add(lengthLabel);
+            rightPanel.add(Box.createHorizontalStrut(SPACING_XSMALL));
+            
+            // Length field (in format M:SS)
+            String lengthText = "";
+            if (length != null) {
+                int minutes = length / 60;
+                int seconds = length % 60;
+                lengthText = String.format("%d:%02d", minutes, seconds);
+            }
+            lengthField = new JTextField(lengthText);
+            lengthField.setFont(FONT_BODY);
+            lengthField.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 10)));
+            lengthField.setPreferredSize(new Dimension(80, 30));
+            lengthField.setToolTipText("Format: M:SS (e.g., 3:45)");
+            rightPanel.add(lengthField);
+            rightPanel.add(Box.createHorizontalStrut(SPACING_SMALL));
+            
+            // Remove button
+            RoundedButton removeButton = new RoundedButton("×", 4);
+            removeButton.setFont(new Font(FONT_FAMILY, Font.BOLD, 16));
+            removeButton.setBackground(new Color(220, 53, 69));
+            removeButton.setForeground(Color.WHITE);
+            removeButton.setCursor(CURSOR_HAND);
+            removeButton.setPreferredSize(new Dimension(30, 30));
+            removeButton.addActionListener(e -> removeTrackRow(this));
+            rightPanel.add(removeButton);
+            
+            panel.add(rightPanel, BorderLayout.EAST);
+        }
+        
+        public JPanel getPanel() {
+            return panel;
+        }
+        
+        public String getTitle() {
+            return titleField.getText();
+        }
+        
+        public Integer getLength() {
+            String text = lengthField.getText().trim();
+            if (text.isEmpty()) {
+                return null;
+            }
+            // Parse format "M:SS" to seconds
+            if (text.contains(":")) {
+                String[] parts = text.split(":");
+                try {
+                    int minutes = Integer.parseInt(parts[0]);
+                    int seconds = Integer.parseInt(parts[1]);
+                    return minutes * 60 + seconds;
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+        
+        public void setTrackNumber(int number) {
+            this.trackNumber = number;
+            // Update track number label (first component in leftPanel)
+            JPanel leftPanel = (JPanel) panel.getComponent(0);
+            JLabel numberLabel = (JLabel) leftPanel.getComponent(0);
+            numberLabel.setText("Track #" + number + ":");
         }
     }
 

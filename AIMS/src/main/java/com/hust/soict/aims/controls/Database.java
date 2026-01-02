@@ -1539,6 +1539,86 @@ public class Database {
     }
     
     /**
+     * Load tracks for a CD product
+     */
+    public static List<Track> loadTracks(long mediaId) {
+        List<Track> tracks = new ArrayList<>();
+        String sql = "SELECT track_id, title, length, track_number " +
+                     "FROM Track WHERE media_id = ? ORDER BY track_number ASC";
+        
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, mediaId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Track track = new Track();
+                    track.setTrackId(rs.getLong("track_id"));
+                    track.setMediaId(mediaId);
+                    track.setTitle(rs.getString("title"));
+                    track.setLength(rs.getObject("length") != null ? rs.getInt("length") : null);
+                    track.setTrackNumber(rs.getObject("track_number") != null ? 
+                                        rs.getInt("track_number") : null);
+                    tracks.add(track);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return tracks;
+    }
+    
+    /**
+     * Save tracks for a CD product
+     * This method deletes all existing tracks and inserts new ones
+     */
+    public static boolean saveTracks(long mediaId, List<Track> tracks) {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+            try {
+                // Delete all existing tracks for this CD
+                String deleteSql = "DELETE FROM Track WHERE media_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
+                    ps.setLong(1, mediaId);
+                    ps.executeUpdate();
+                }
+                
+                // Insert new tracks
+                if (tracks != null && !tracks.isEmpty()) {
+                    String insertSql = "INSERT INTO Track (media_id, title, length, track_number) VALUES (?, ?, ?, ?)";
+                    try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                        for (Track track : tracks) {
+                            ps.setLong(1, mediaId);
+                            ps.setString(2, track.getTitle());
+                            if (track.getLength() != null) {
+                                ps.setInt(3, track.getLength());
+                            } else {
+                                ps.setNull(3, java.sql.Types.INTEGER);
+                            }
+                            if (track.getTrackNumber() != null) {
+                                ps.setInt(4, track.getTrackNumber());
+                            } else {
+                                ps.setNull(4, java.sql.Types.INTEGER);
+                            }
+                            ps.addBatch();
+                        }
+                        ps.executeBatch();
+                    }
+                }
+                
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
      * Delete a product by ID
      * Only deletes if stock = 0, otherwise sets status to 'deactivated'
      */
