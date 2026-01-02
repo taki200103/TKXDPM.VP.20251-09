@@ -21,6 +21,8 @@ public class UIConstant {
     public static final Color DANGER_DARK = new Color(192, 57, 43); // #C0392B - Dark Red
     public static final Color WARNING_COLOR = new Color(243, 156, 18); // #F39C12 - Orange
     public static final Color INFO_COLOR = new Color(204, 102, 0); // #CC6600 - Darker Orange (matches PRIMARY_COLOR)
+    public static final Color PAYPAL_COLOR = new Color(0, 112, 186); // #0070ba
+    public static final Color VIETQR_COLOR = new Color(215, 53, 53); // #D73535
 
     // Neutral Colors - Background
     public static final Color BACKGROUND_WHITE = Color.WHITE;

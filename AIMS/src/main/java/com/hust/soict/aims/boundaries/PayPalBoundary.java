@@ -2,6 +2,10 @@ package com.hust.soict.aims.boundaries;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hust.soict.aims.entities.Invoice;
+import com.hust.soict.aims.entities.Order;
+import com.hust.soict.aims.services.OrderService;
+import com.hust.soict.aims.services.PaymentContextService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,6 +36,9 @@ public class PayPalBoundary {
 
     // order status store
     private final Map<String, String> orderStatus = new ConcurrentHashMap<>();
+    
+    private final OrderService orderService = new OrderService();
+    private final PaymentContextService paymentContextService = PaymentContextService.getInstance();
 
     private String paypalApiBase() {
         if ("live".equalsIgnoreCase(mode)) return "https://api-m.paypal.com";
@@ -54,6 +61,11 @@ public class PayPalBoundary {
         JsonNode node = mapper.readTree(resp.body());
         String id = node.path("id").asText();
         orderStatus.put(id, "CREATED");
+        
+        // Note: Invoice mapping should be stored by PaymentScreen when creating payment
+        // This is just for logging
+        System.out.println("[PayPalBoundary] Created PayPal order: " + id);
+        
         return node;
     }
 
@@ -69,8 +81,42 @@ public class PayPalBoundary {
 
         HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
         JsonNode node = mapper.readTree(resp.body());
-        orderStatus.put(orderId, "COMPLETED");
+        String status = node.path("status").asText("UNKNOWN");
+        orderStatus.put(orderId, status);
+        
+        // If payment is completed, process the order
+        if ("COMPLETED".equals(status)) {
+            processPayPalPaymentSuccess(orderId);
+        }
+        
         return node;
+    }
+    
+    /**
+     * Process order after successful PayPal payment
+     */
+    private void processPayPalPaymentSuccess(String paypalOrderId) {
+        try {
+            // Try to get invoice from payment context
+            Invoice invoice = paymentContextService.getInvoiceForPayPalOrder(paypalOrderId);
+            
+            if (invoice != null) {
+                // Process order: insert into database, reduce stock, send email
+                boolean success = orderService.processPayPalPaymentOrder(invoice, paypalOrderId);
+                if (success) {
+                    System.out.println("[PayPalBoundary] ✅ Order processed successfully for PayPal order: " + paypalOrderId);
+                    // Remove from context after processing
+                    paymentContextService.removePayPalOrder(paypalOrderId);
+                } else {
+                    System.err.println("[PayPalBoundary] ❌ Failed to process order for PayPal order: " + paypalOrderId);
+                }
+            } else {
+                System.err.println("[PayPalBoundary] ⚠️ No invoice found for PayPal order: " + paypalOrderId + ". Order may have been processed manually.");
+            }
+        } catch (Exception e) {
+            System.err.println("[PayPalBoundary] ❌ Error processing PayPal payment: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public String getStatus(String orderId) { return orderStatus.getOrDefault(orderId, "UNKNOWN"); }

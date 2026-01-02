@@ -6,6 +6,7 @@ import com.hust.soict.aims.utils.PasswordHasher;
 
 import java.sql.*;
 import java.util.*;
+import java.util.List;
 
 public class Database {
     private static final String DB_FILE = "aims.db";
@@ -1538,6 +1539,86 @@ public class Database {
     }
     
     /**
+     * Load tracks for a CD product
+     */
+    public static List<Track> loadTracks(long mediaId) {
+        List<Track> tracks = new ArrayList<>();
+        String sql = "SELECT track_id, title, length, track_number " +
+                     "FROM Track WHERE media_id = ? ORDER BY track_number ASC";
+        
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, mediaId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Track track = new Track();
+                    track.setTrackId(rs.getLong("track_id"));
+                    track.setMediaId(mediaId);
+                    track.setTitle(rs.getString("title"));
+                    track.setLength(rs.getObject("length") != null ? rs.getInt("length") : null);
+                    track.setTrackNumber(rs.getObject("track_number") != null ? 
+                                        rs.getInt("track_number") : null);
+                    tracks.add(track);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return tracks;
+    }
+    
+    /**
+     * Save tracks for a CD product
+     * This method deletes all existing tracks and inserts new ones
+     */
+    public static boolean saveTracks(long mediaId, List<Track> tracks) {
+        try (Connection conn = DriverManager.getConnection(URL)) {
+            conn.setAutoCommit(false);
+            try {
+                // Delete all existing tracks for this CD
+                String deleteSql = "DELETE FROM Track WHERE media_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
+                    ps.setLong(1, mediaId);
+                    ps.executeUpdate();
+                }
+                
+                // Insert new tracks
+                if (tracks != null && !tracks.isEmpty()) {
+                    String insertSql = "INSERT INTO Track (media_id, title, length, track_number) VALUES (?, ?, ?, ?)";
+                    try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                        for (Track track : tracks) {
+                            ps.setLong(1, mediaId);
+                            ps.setString(2, track.getTitle());
+                            if (track.getLength() != null) {
+                                ps.setInt(3, track.getLength());
+                            } else {
+                                ps.setNull(3, java.sql.Types.INTEGER);
+                            }
+                            if (track.getTrackNumber() != null) {
+                                ps.setInt(4, track.getTrackNumber());
+                            } else {
+                                ps.setNull(4, java.sql.Types.INTEGER);
+                            }
+                            ps.addBatch();
+                        }
+                        ps.executeBatch();
+                    }
+                }
+                
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
      * Delete a product by ID
      * Only deletes if stock = 0, otherwise sets status to 'deactivated'
      */
@@ -1694,5 +1775,153 @@ public class Database {
             ps.setLong(2, mediaId);
             ps.executeUpdate();
         }
+    }
+
+    // ========================
+    // Order & Payment Methods
+    // ========================
+
+    /**
+     * Insert a new order into Orders table
+     * @return The generated order_id
+     */
+    public static long insertOrder(Order order) throws SQLException {
+        String sql = "INSERT INTO Orders (status, created_at) VALUES (?, CURRENT_TIMESTAMP)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, order.getStatus() != null ? order.getStatus() : "pending");
+            ps.executeUpdate();
+            
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    long orderId = rs.getLong(1);
+                    order.setOrderId(orderId);
+                    
+                    // Query back to get the created_at timestamp from database
+                    // SQLite stores timestamps in UTC, but we'll handle timezone conversion when displaying
+                    String selectSql = "SELECT created_at FROM Orders WHERE order_id = ?";
+                    try (PreparedStatement selectPs = conn.prepareStatement(selectSql)) {
+                        selectPs.setLong(1, orderId);
+                        try (ResultSet selectRs = selectPs.executeQuery()) {
+                            if (selectRs.next()) {
+                                // Get timestamp - SQLite stores as UTC but returns as local time
+                                Timestamp createdAt = selectRs.getTimestamp("created_at");
+                                order.setCreatedAt(createdAt);
+                            }
+                        }
+                    }
+                    
+                    return orderId;
+                }
+            }
+        }
+        throw new SQLException("Failed to insert order");
+    }
+
+    /**
+     * Insert delivery information for an order
+     */
+    public static void insertDeliveryInfo(DeliveryInfo deliveryInfo) throws SQLException {
+        String sql = "INSERT INTO DeliveryInfo (order_id, recipient_name, phone_number, email, delivery_address, city, instructions) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, deliveryInfo.getOrderId());
+            ps.setString(2, deliveryInfo.getRecipientName());
+            ps.setString(3, deliveryInfo.getPhoneNumber());
+            ps.setString(4, deliveryInfo.getEmail());
+            ps.setString(5, deliveryInfo.getDeliveryAddress());
+            ps.setString(6, deliveryInfo.getCity());
+            ps.setString(7, deliveryInfo.getInstructions());
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Insert order media items
+     */
+    public static void insertOrderMedia(OrderMedia orderMedia) throws SQLException {
+        String sql = "INSERT INTO OrderMedia (order_id, media_id, quantity, price) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, orderMedia.getOrderId());
+            ps.setLong(2, orderMedia.getMediaId());
+            ps.setInt(3, orderMedia.getQuantity());
+            ps.setDouble(4, orderMedia.getPrice());
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Insert multiple order media items in batch
+     */
+    public static void insertOrderMediaBatch(List<OrderMedia> orderMediaList) throws SQLException {
+        String sql = "INSERT INTO OrderMedia (order_id, media_id, quantity, price) VALUES (?, ?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (OrderMedia orderMedia : orderMediaList) {
+                ps.setLong(1, orderMedia.getOrderId());
+                ps.setLong(2, orderMedia.getMediaId());
+                ps.setInt(3, orderMedia.getQuantity());
+                ps.setDouble(4, orderMedia.getPrice());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
+    /**
+     * Insert payment transaction
+     * @return The generated payment_transaction_id
+     */
+    public static long insertPaymentTransaction(PaymentTransaction paymentTransaction) throws SQLException {
+        String sql = "INSERT INTO PaymentTransaction (amount, method_type, transaction_no, transaction_content, pay_date, bank_code, bank_transaction_no, card_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setDouble(1, paymentTransaction.getAmount());
+            ps.setString(2, paymentTransaction.getMethodType());
+            ps.setString(3, paymentTransaction.getTransactionNo());
+            ps.setString(4, paymentTransaction.getTransactionContent());
+            ps.setTimestamp(5, paymentTransaction.getPayDate());
+            ps.setString(6, paymentTransaction.getBankCode());
+            ps.setString(7, paymentTransaction.getBankTransactionNo());
+            ps.setString(8, paymentTransaction.getCardType());
+            ps.executeUpdate();
+            
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    long paymentTransactionId = rs.getLong(1);
+                    paymentTransaction.setPaymentTransactionId(paymentTransactionId);
+                    return paymentTransactionId;
+                }
+            }
+        }
+        throw new SQLException("Failed to insert payment transaction");
+    }
+
+    /**
+     * Insert invoice
+     * @return The generated invoice_id
+     */
+    public static long insertInvoice(Invoice invoice) throws SQLException {
+        String sql = "INSERT INTO Invoice (order_id, payment_transaction_id, product_total, vat_amount, shipping_fee, total_amount, created_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
+        try (Connection conn = DriverManager.getConnection(URL);
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setLong(1, invoice.getOrderId());
+            ps.setLong(2, invoice.getPaymentTransactionId());
+            ps.setDouble(3, invoice.getProductTotal());
+            ps.setDouble(4, invoice.getVatAmount());
+            ps.setDouble(5, invoice.getShippingFee());
+            ps.setDouble(6, invoice.getTotalAmount());
+            ps.executeUpdate();
+            
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    long invoiceId = rs.getLong(1);
+                    invoice.setInvoiceId(invoiceId);
+                    return invoiceId;
+                }
+            }
+        }
+        throw new SQLException("Failed to insert invoice");
     }
 }

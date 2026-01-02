@@ -225,6 +225,7 @@ public class DeliveryInfoScreen extends BaseScreenHandler {
         deliveryInfo = new DeliveryInfo();
         deliveryInfo.setReceiverName(name);
         deliveryInfo.setPhone(phone);
+        deliveryInfo.setEmail(email); // Set email from input field
         deliveryInfo.setCity(city);
         deliveryInfo.setDistrict(district != null ? district : "");
         deliveryInfo.setAddressLine(address);

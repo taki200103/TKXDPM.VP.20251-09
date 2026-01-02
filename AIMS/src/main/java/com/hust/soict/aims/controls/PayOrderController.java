@@ -1,60 +1,93 @@
 package com.hust.soict.aims.controls;
 
+import com.hust.soict.aims.entities.Invoice;
 import com.hust.soict.aims.entities.Order;
+import com.hust.soict.aims.entities.enums.PaymentMethod;
+import com.hust.soict.aims.entities.PaymentResult;
 import com.hust.soict.aims.entities.QRCode;
 import com.hust.soict.aims.exceptions.PaymentException;
-import com.hust.soict.aims.entities.PaymentStatus;
+import com.hust.soict.aims.subsystems.IQRCodePayment;
+import com.hust.soict.aims.subsystems.paypal.PayPalSubsystem;
+import com.hust.soict.aims.subsystems.vietqr.VietQRSubsystem;
 
 /**
- * Controller for processing order payment
- * Coordinates between payment methods (QR, Credit Card) and order completion
+ * Controller xử lý nghiệp vụ thanh toán đơn hàng
+ * - Tạo payment (PayPal / VietQR)
+ * - Xác nhận hoàn tất thanh toán
  */
 public class PayOrderController {
-    private final IPaymentQRCode qrPaymentController;
+
     private final PlaceOrderController placeOrderController;
-    
-    /**
-     * Create PayOrderController with payment controller and order controller
-     * @param qrPaymentController QR payment implementation
-     * @param placeOrderController Controller to complete order after payment
-     */
-    public PayOrderController(IPaymentQRCode qrPaymentController, PlaceOrderController placeOrderController) {
-        this.qrPaymentController = qrPaymentController;
+
+    // Subsystems
+    private final IQRCodePayment vietQRSubsystem;
+    private final PayPalSubsystem payPalSubsystem;
+
+    public PayOrderController(PlaceOrderController placeOrderController) {
         this.placeOrderController = placeOrderController;
+        this.vietQRSubsystem = new VietQRSubsystem();
+        this.payPalSubsystem = new PayPalSubsystem();
     }
-    
+
     /**
-     * Generate QR code for order payment
-     * @param order Order to pay
-     * @return QRCode containing payment information
-     * @throws PaymentException if QR generation fails
+     * Tạo payment cho đơn hàng
      */
-    public QRCode generatePaymentQR(Order order) throws PaymentException {
-        return qrPaymentController.generateQRCode(order);
+    public PaymentResult createPayment(Invoice invoice, PaymentMethod method)
+            throws PaymentException {
+
+        Order order = invoice.getOrder();
+        int amount = (int) invoice.getTotal();
+        String content = "AIMS_ORDER_" + order.getId();
+
+        switch (method) {
+            case VIETQR:
+                return createVietQRPayment(amount, content);
+
+            case PAYPAL:
+                return createPayPalPayment(amount);
+
+            default:
+                throw new PaymentException("Unsupported payment method: " + method);
+        }
     }
-    
+
     /**
-     * Check if payment has been completed for order
-     * @param order Order to check
-     * @return PaymentStatus indicating payment state
-     * @throws PaymentException if status check fails
+     * Tạo thanh toán VietQR
      */
-    public PaymentStatus checkPaymentStatus(Order order) throws PaymentException {
-        return qrPaymentController.checkPaymentStatus(order);
+    private PaymentResult createVietQRPayment(int amount, String content)
+            throws PaymentException {
+
+        String qrUrl = vietQRSubsystem.generatePayUrl(amount, content);
+
+        QRCode qrCode = new QRCode();
+        qrCode.setQrCode(qrUrl);
+        qrCode.setQrLink(qrUrl);
+        qrCode.setBankCode("ICB");
+        qrCode.setBankName("VietinBank");
+        qrCode.setBankAccount("109875430178");
+
+        return PaymentResult.vietQR(qrCode);
     }
-    
+
     /**
-     * Complete order after payment confirmation
-     * This reduces stock and finalizes the order
-     * @return PlaceOrderResult with success status
+     * Tạo thanh toán PayPal
+     */
+    private PaymentResult createPayPalPayment(int amount)
+            throws PaymentException {
+
+        String payUrl = payPalSubsystem.generatePayUrl(amount, "AIMS_PAYPAL");
+        return PaymentResult.paypal(payUrl);
+    }
+
+    /**
+     * Hoàn tất đơn hàng sau khi thanh toán thành công
      */
     public PlaceOrderController.PlaceOrderResult completeOrder() {
         return placeOrderController.payOrder();
     }
-    
+
     /**
-     * Get current order being processed
-     * @return Order object
+     * Lấy order hiện tại
      */
     public Order getCurrentOrder() {
         return placeOrderController.getCurrentOrder();

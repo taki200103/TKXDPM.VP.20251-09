@@ -97,7 +97,7 @@ public class CartScreen extends BaseScreenHandler {
     }
 
     private RoundedButton createPlaceOrderButton() {
-        RoundedButton btn = new RoundedButton("Place Order", 24);
+        RoundedButton btn = new RoundedButton("Place Order");
         btn.setFont(FONT_BUTTON_LARGE);
         btn.setBackground(PRIMARY_COLOR);
         btn.setForeground(TEXT_ON_PRIMARY);
