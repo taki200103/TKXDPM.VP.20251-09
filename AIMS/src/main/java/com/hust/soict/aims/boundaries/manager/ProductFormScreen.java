@@ -49,6 +49,9 @@ public class ProductFormScreen extends BaseScreenHandler {
     private File selectedImageFile;
     private JLabel imagePreviewLabel;
     private RoundedButton uploadImageButton;
+    
+    // Scroll pane reference for resetting scroll position
+    private JScrollPane mainScrollPane;
 
     public ProductFormScreen(BaseScreenHandler parent, Product product) {
         super(product == null ? "Add Product" : "Edit Product", parent, false);
@@ -256,6 +259,10 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (currentType != null && currentType.equals("cd")) {
             mainPanel.add(Box.createVerticalStrut(SPACING_MEDIUM));
             mainPanel.add(trackSectionPanel);
+            // Load tracks after panel is created and added to UI
+            if (product != null && product instanceof CD) {
+                loadTrackList();
+            }
         }
 
         // Buttons panel at bottom
@@ -291,14 +298,14 @@ public class ProductFormScreen extends BaseScreenHandler {
         bottomButtonPanel.add(cancelButton);
 
         // Scroll pane for main content (similar to ProductManagementScreen)
-        JScrollPane scrollPane = new JScrollPane(mainPanel);
-        scrollPane.setBorder(PADDING_SMALL);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        scrollPane.getViewport().setBackground(BACKGROUND_WHITE);
+        mainScrollPane = new JScrollPane(mainPanel);
+        mainScrollPane.setBorder(PADDING_SMALL);
+        mainScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        mainScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        mainScrollPane.getViewport().setBackground(BACKGROUND_WHITE);
         
         // Add scroll pane to wrapper panel (exactly like ProductManagementScreen)
-        wrapperPanel.add(scrollPane, BorderLayout.CENTER);
+        wrapperPanel.add(mainScrollPane, BorderLayout.CENTER);
         
         // Add wrapper panel to content pane
         add(wrapperPanel, BorderLayout.CENTER);
@@ -564,8 +571,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             setTypeField(fieldIndex++, c.getRecordLabel());
             setTypeField(fieldIndex++, c.getGenre());
             setTypeField(fieldIndex++, c.getReleaseDate());
-            // Load track list
-            loadTrackList();
+            // Track list will be loaded after trackSectionPanel is created in setupLayout()
         } else if (type.equals("dvd") && product instanceof DVD) {
             DVD d = (DVD) product;
             // Set disc type dropdown
@@ -1046,13 +1052,19 @@ public class ProductFormScreen extends BaseScreenHandler {
                         if (start > 0 && end > start) {
                             title = trackInfo.substring(0, start).trim();
                             String timeStr = trackInfo.substring(start + 1, end).trim();
-                            // Parse time format "M:SS" to seconds
+                            // Parse time format "M:SS" to minutes (convert seconds to minutes)
                             if (timeStr.contains(":")) {
                                 String[] parts = timeStr.split(":");
                                 try {
                                     int minutes = Integer.parseInt(parts[0]);
                                     int seconds = Integer.parseInt(parts[1]);
-                                    length = minutes * 60 + seconds;
+                                    // Convert to total minutes (round to nearest minute)
+                                    length = (int) Math.round((minutes * 60 + seconds) / 60.0);
+                                } catch (NumberFormatException ignored) {}
+                            } else {
+                                // Try to parse as minutes directly
+                                try {
+                                    length = Integer.parseInt(timeStr);
                                 } catch (NumberFormatException ignored) {}
                             }
                         }
@@ -1073,6 +1085,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             trackListPanel.removeAll();
             
             for (Track track : tracks) {
+                // Length is always stored in minutes, no conversion needed
                 TrackRow trackRow = new TrackRow(
                     track.getTrackNumber() != null ? track.getTrackNumber() : trackRows.size() + 1,
                     track.getTitle(),
@@ -1084,6 +1097,13 @@ public class ProductFormScreen extends BaseScreenHandler {
             
             trackListPanel.revalidate();
             trackListPanel.repaint();
+            
+            // Reset scroll position to top after loading tracks
+            if (mainScrollPane != null) {
+                SwingUtilities.invokeLater(() -> {
+                    mainScrollPane.getViewport().setViewPosition(new Point(0, 0));
+                });
+            }
         }
     }
     
@@ -1178,12 +1198,12 @@ public class ProductFormScreen extends BaseScreenHandler {
             rightPanel.add(lengthLabel);
             rightPanel.add(Box.createHorizontalStrut(SPACING_XSMALL));
             
-            // Length field (in format M:SS)
+            // Length field (in minutes)
             String lengthText = "";
             if (length != null) {
-                int minutes = length / 60;
-                int seconds = length % 60;
-                lengthText = String.format("%d:%02d", minutes, seconds);
+                // Display as minutes (if stored as minutes) or convert from seconds if needed
+                // Assuming length is stored as minutes in DB
+                lengthText = String.valueOf(length);
             }
             lengthField = new JTextField(lengthText);
             lengthField.setFont(FONT_BODY);
@@ -1191,7 +1211,7 @@ public class ProductFormScreen extends BaseScreenHandler {
                     BorderFactory.createLineBorder(BORDER_LIGHT, 1),
                     BorderFactory.createEmptyBorder(5, 10, 5, 10)));
             lengthField.setPreferredSize(new Dimension(80, 30));
-            lengthField.setToolTipText("Format: M:SS (e.g., 3:45)");
+            lengthField.setToolTipText("Length in minutes (e.g., 3 or 3.5)");
             rightPanel.add(lengthField);
             rightPanel.add(Box.createHorizontalStrut(SPACING_SMALL));
             
@@ -1221,18 +1241,17 @@ public class ProductFormScreen extends BaseScreenHandler {
             if (text.isEmpty()) {
                 return null;
             }
-            // Parse format "M:SS" to seconds
-            if (text.contains(":")) {
-                String[] parts = text.split(":");
-                try {
-                    int minutes = Integer.parseInt(parts[0]);
-                    int seconds = Integer.parseInt(parts[1]);
-                    return minutes * 60 + seconds;
-                } catch (NumberFormatException e) {
+            // Parse as minutes (can be integer or decimal, will round to integer)
+            try {
+                double minutes = Double.parseDouble(text);
+                if (minutes < 0) {
                     return null;
                 }
+                // Round to nearest integer
+                return (int) Math.round(minutes);
+            } catch (NumberFormatException e) {
+                return null;
             }
-            return null;
         }
         
         public void setTrackNumber(int number) {
@@ -1250,6 +1269,17 @@ public class ProductFormScreen extends BaseScreenHandler {
         // Don't maximize if embedded in ManagerMainScreen
         if (managerMainScreen == null) {
             setExtendedState(JFrame.MAXIMIZED_BOTH);
+        }
+        
+        // Reset scroll position to top when showing the form
+        if (mainScrollPane != null) {
+            SwingUtilities.invokeLater(() -> {
+                mainScrollPane.getViewport().setViewPosition(new Point(0, 0));
+                // Focus on first field to ensure scroll is at top
+                if (titleField != null) {
+                    titleField.requestFocusInWindow();
+                }
+            });
         }
     }
 }

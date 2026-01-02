@@ -179,6 +179,11 @@ public class ProductManagementScreen extends BaseScreenHandler {
 
     @Override
     public void refresh() {
+        // Stop any cell editing before clearing table to prevent index issues
+        if (productTable.isEditing()) {
+            productTable.getCellEditor().stopCellEditing();
+        }
+        
         tableModel.setRowCount(0);
 
         List<Product> products;
@@ -335,19 +340,31 @@ public class ProductManagementScreen extends BaseScreenHandler {
                 boolean isSelected, int row, int column) {
             panel.removeAll();
             // Get productId from the Actions column value (JPanel with client property)
+            // Use the row parameter to ensure we get the correct productId for this specific row
             if (value instanceof JPanel) {
                 JPanel actionPanel = (JPanel) value;
                 Object productIdObj = actionPanel.getClientProperty("productId");
                 if (productIdObj instanceof Long || productIdObj instanceof Integer || productIdObj instanceof Number) {
                     currentProductId = ((Number) productIdObj).longValue();
-                    // Create new buttons panel for this row
-                    JPanel buttonsPanel = createActionButtonsPanel(currentProductId);
-                    // Add all components from the buttons panel
-                    for (Component comp : buttonsPanel.getComponents()) {
-                        panel.add(comp);
-                    }
+                } else {
+                    // Fallback: try to get from table model if client property is missing
+                    // This shouldn't happen, but just in case
+                    System.err.println("[ButtonPanelEditor] Warning: productId not found in actionPanel for row " + row);
+                    return panel;
                 }
+            } else {
+                // If value is not a JPanel, something is wrong
+                System.err.println("[ButtonPanelEditor] Error: value is not JPanel for row " + row);
+                return panel;
             }
+            
+            // Create new buttons panel for this row with the correct productId
+            JPanel buttonsPanel = createActionButtonsPanel(currentProductId);
+            // Add all components from the buttons panel
+            for (Component comp : buttonsPanel.getComponents()) {
+                panel.add(comp);
+            }
+            
             panel.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
             return panel;
         }

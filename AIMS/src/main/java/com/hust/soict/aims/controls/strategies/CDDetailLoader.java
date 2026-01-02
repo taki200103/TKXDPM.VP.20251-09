@@ -154,34 +154,57 @@ public class CDDetailLoader implements ProductDetailLoader {
                 trackRow.setAlignmentX(Component.LEFT_ALIGNMENT);
                 trackRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
                 
-                // Track number (orange color, bold)
+                // Track number label
                 Integer trackNumber = track.getTrackNumber();
                 String trackNumText = trackNumber != null ? String.valueOf(trackNumber) : "?";
-                JLabel numberLabel = new JLabel("Track #" + trackNumText + ":");
-                numberLabel.setFont(new java.awt.Font(FONT_FAMILY, java.awt.Font.BOLD, FONT_SIZE_BODY));
-                numberLabel.setForeground(PRIMARY_COLOR);
-                numberLabel.setPreferredSize(new Dimension(90, 25));
-                trackRow.add(numberLabel);
+                JLabel trackNumLabel = new JLabel("Track #" + trackNumText + ":");
+                trackNumLabel.setFont(new java.awt.Font(FONT_FAMILY, java.awt.Font.BOLD, FONT_SIZE_BODY));
+                trackNumLabel.setForeground(PRIMARY_COLOR);
+                trackNumLabel.setPreferredSize(new Dimension(90, 25));
+                trackRow.add(trackNumLabel);
+                trackRow.add(Box.createHorizontalStrut(SPACING_XSMALL));
+                
+                // Title label
+                JLabel titleLabelLabel = new JLabel("title:");
+                titleLabelLabel.setFont(FONT_BODY);
+                titleLabelLabel.setForeground(TEXT_SECONDARY);
+                titleLabelLabel.setPreferredSize(new Dimension(50, 25));
+                trackRow.add(titleLabelLabel);
+                trackRow.add(Box.createHorizontalStrut(SPACING_XSMALL));
+                
+                // Title value
+                String title = track.getTitle() != null ? track.getTitle() : "";
+                JLabel titleValueLabel = new JLabel(title);
+                titleValueLabel.setFont(FONT_BODY);
+                titleValueLabel.setForeground(TEXT_PRIMARY);
+                titleValueLabel.setPreferredSize(new Dimension(250, 25));
+                trackRow.add(titleValueLabel);
                 trackRow.add(Box.createHorizontalStrut(SPACING_SMALL));
                 
-                // Title
-                String title = track.getTitle() != null ? track.getTitle() : "";
-                JLabel titleLabel = new JLabel(title);
-                titleLabel.setFont(FONT_BODY);
-                titleLabel.setForeground(TEXT_PRIMARY);
-                titleLabel.setPreferredSize(new Dimension(300, 25));
-                trackRow.add(titleLabel);
-                trackRow.add(Box.createHorizontalStrut(SPACING_MEDIUM));
+                // Length label
+                JLabel lengthLabelLabel = new JLabel("length:");
+                lengthLabelLabel.setFont(FONT_BODY);
+                lengthLabelLabel.setForeground(TEXT_SECONDARY);
+                lengthLabelLabel.setPreferredSize(new Dimension(60, 25));
+                trackRow.add(lengthLabelLabel);
+                trackRow.add(Box.createHorizontalStrut(SPACING_XSMALL));
                 
-                // Length
+                // Length value
                 if (track.getLength() != null) {
                     int minutes = track.getLength() / 60;
                     int seconds = track.getLength() % 60;
                     String lengthText = String.format("%d:%02d", minutes, seconds);
-                    JLabel lengthLabel = new JLabel("(" + lengthText + ")");
-                    lengthLabel.setFont(FONT_SMALL);
-                    lengthLabel.setForeground(TEXT_SECONDARY);
-                    trackRow.add(lengthLabel);
+                    JLabel lengthValueLabel = new JLabel(lengthText);
+                    lengthValueLabel.setFont(FONT_BODY);
+                    lengthValueLabel.setForeground(TEXT_PRIMARY);
+                    lengthValueLabel.setPreferredSize(new Dimension(60, 25));
+                    trackRow.add(lengthValueLabel);
+                } else {
+                    JLabel lengthValueLabel = new JLabel("N/A");
+                    lengthValueLabel.setFont(FONT_BODY);
+                    lengthValueLabel.setForeground(TEXT_SECONDARY);
+                    lengthValueLabel.setPreferredSize(new Dimension(60, 25));
+                    trackRow.add(lengthValueLabel);
                 }
                 
                 trackRow.add(Box.createHorizontalGlue());
