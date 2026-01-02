@@ -18,7 +18,6 @@ public class OrderSummaryPanel extends JPanel {
     private JPanel itemsPanel;
     private JLabel totalItemsLabel;
     private JLabel subtotalLabel;
-    private JLabel totalWeightLabel;
     private JLabel shippingLabel;
     private JLabel totalLabel;
 
@@ -98,12 +97,6 @@ public class OrderSummaryPanel extends JPanel {
         panel.add(createSummaryRow("Subtotal:", subtotalLabel));
         panel.add(Box.createRigidArea(new Dimension(0, SPACING_XSMALL)));
 
-        // Total weight row
-        totalWeightLabel = new JLabel();
-        totalWeightLabel.setFont(FONT_BODY);
-        panel.add(createSummaryRow("Tổng cân nặng:", totalWeightLabel));
-        panel.add(Box.createRigidArea(new Dimension(0, SPACING_XSMALL)));
-
         // Shipping row
         shippingLabel = new JLabel("0 VND");
         shippingLabel.setFont(FONT_BODY);
@@ -170,12 +163,8 @@ public class OrderSummaryPanel extends JPanel {
             itemsPanel.add(Box.createRigidArea(new Dimension(0, SPACING_SMALL)));
         }
 
-        // Calculate total weight
-        double totalWeight = cartController.getTotalWeight();
-        
         // Update calculation labels
         subtotalLabel.setText(String.format("%.0f VND", subtotal));
-        totalWeightLabel.setText(String.format("%.2f kg", totalWeight));
         shippingLabel.setText(String.format("%.0f VND", shippingFee));
         totalLabel.setText(String.format("%.0f VND", total));
 

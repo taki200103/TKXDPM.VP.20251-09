@@ -171,14 +171,6 @@ public class ProductCardPanel extends RoundedPanel {
         weightLabel.setForeground(TEXT_SECONDARY);
         weightLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         infoPanel.add(weightLabel);
-        infoPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
-
-        // Stock quantity info
-        JLabel stockLabel = new JLabel(String.format("Tồn kho: %d", product.getQuantity()));
-        stockLabel.setFont(FONT_SMALL);
-        stockLabel.setForeground(TEXT_SECONDARY);
-        stockLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        infoPanel.add(stockLabel);
 
         // Add flexible space to push content to top
         infoPanel.add(Box.createVerticalGlue());
