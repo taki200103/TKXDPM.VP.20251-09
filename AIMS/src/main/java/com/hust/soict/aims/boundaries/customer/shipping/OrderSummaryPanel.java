@@ -13,7 +13,6 @@ import com.hust.soict.aims.entities.DeliveryInfo;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class OrderSummaryPanel extends JPanel {
-    private final CartController cartController;
     private final PlaceOrderController placeOrderController;
     private JPanel itemsPanel;
     private JLabel totalItemsLabel;
@@ -29,8 +28,7 @@ public class OrderSummaryPanel extends JPanel {
         updateSummary();
     }
 
-    public OrderSummaryPanel(CartController cartController, PlaceOrderController placeOrderController) {
-        this.cartController = cartController;
+    public OrderSummaryPanel(PlaceOrderController placeOrderController) {
         this.placeOrderController = placeOrderController;
         setupUI();
     }
@@ -101,7 +99,7 @@ public class OrderSummaryPanel extends JPanel {
         // Total weight row
         totalWeightLabel = new JLabel();
         totalWeightLabel.setFont(FONT_BODY);
-        panel.add(createSummaryRow("Tổng cân nặng:", totalWeightLabel));
+        panel.add(createSummaryRow("Weight:", totalWeightLabel));
         panel.add(Box.createRigidArea(new Dimension(0, SPACING_XSMALL)));
 
         // Shipping row
@@ -154,10 +152,10 @@ public class OrderSummaryPanel extends JPanel {
      */
     public void updateSummary() {
         itemsPanel.removeAll();
-
-        List<CartItem> items = cartController.getItems();
-        int totalQty = cartController.getTotalQuantity();
-        double subtotal = cartController.getSubtotal();
+        CartController cart = CartController.getInstance();
+        List<CartItem> items = cart.getItems();
+        int totalQty = cart.getTotalQuantity();
+        double subtotal = cart.getSubtotal();
         double total = subtotal + shippingFee;
 
         // Update total items
@@ -171,8 +169,8 @@ public class OrderSummaryPanel extends JPanel {
         }
 
         // Calculate total weight
-        double totalWeight = cartController.getTotalWeight();
-        
+        double totalWeight = cart.getTotalWeight();
+
         // Update calculation labels
         subtotalLabel.setText(String.format("%.0f VND", subtotal));
         totalWeightLabel.setText(String.format("%.2f kg", totalWeight));
@@ -188,7 +186,7 @@ public class OrderSummaryPanel extends JPanel {
         if (deliveryInfo == null)
             return;
 
-        PlaceOrderController.PlaceOrderResult result = placeOrderController.placeOrder(cartController, deliveryInfo);
+        PlaceOrderController.PlaceOrderResult result = placeOrderController.placeOrder(deliveryInfo);
 
         if (result.success && result.invoice != null) {
             this.shippingFee = result.invoice.getShippingFee();
@@ -252,6 +250,6 @@ public class OrderSummaryPanel extends JPanel {
      * Get current total amount
      */
     public double getTotalAmount() {
-        return cartController.getSubtotal();
+        return CartController.getInstance().getSubtotal();
     }
 }

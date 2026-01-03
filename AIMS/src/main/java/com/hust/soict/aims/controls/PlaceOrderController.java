@@ -7,7 +7,6 @@ import java.util.UUID;
 
 public class PlaceOrderController {
     private Order currentOrder;
-
     private List<CartItem> orderItems;
     private double subtotal;
     private double totalWeight;
@@ -32,7 +31,8 @@ public class PlaceOrderController {
      * @param cart CartController containing items to order
      * @return true if order created successfully, false if cart is empty
      */
-    private boolean setOrder(CartController cart) {
+    private boolean setOrder() {
+        CartController cart = CartController.getInstance();
         if (cart == null || cart.isEmpty()) {
             return false;
         }
@@ -208,9 +208,9 @@ public class PlaceOrderController {
      * @param deliveryInfo Delivery information
      * @return PlaceOrderResult with invoice if successful
      */
-    public PlaceOrderResult placeOrder(CartController cart, DeliveryInfo deliveryInfo) {
+    public PlaceOrderResult placeOrder(DeliveryInfo deliveryInfo) {
         // Step 1: Set order from cart
-        if (!setOrder(cart)) {
+        if (!setOrder()) {
             return new PlaceOrderResult(false, "Cart is empty");
         }
 

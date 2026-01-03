@@ -8,7 +8,6 @@ import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
-import com.hust.soict.aims.boundaries.customer.homepage.Homepage;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.controls.PayOrderController;
@@ -26,7 +25,6 @@ public class PaymentScreen extends BaseScreenHandler {
 
     private final Invoice invoice;
     private final PayOrderController payOrderController;
-    private final CartController cartController;
     private final OrderService orderService;
     private final PaymentContextService paymentContextService;
 
@@ -50,12 +48,10 @@ public class PaymentScreen extends BaseScreenHandler {
 
     public PaymentScreen(BaseScreenHandler parent,
             Invoice invoice,
-            PlaceOrderController placeOrderController,
-            CartController cartController) {
+            PlaceOrderController placeOrderController) {
         super("Payment", parent, false);
         this.invoice = invoice;
         this.payOrderController = new PayOrderController(placeOrderController);
-        this.cartController = cartController;
         this.orderService = new OrderService();
         this.paymentContextService = PaymentContextService.getInstance();
         initializeScreen();
@@ -262,7 +258,7 @@ public class PaymentScreen extends BaseScreenHandler {
     private void displayVietQR(QRCode qr) {
         // Store QR code for later use in payment processing
         this.currentQRCode = qr;
-        
+
         try {
             BufferedImage img = ImageIO.read(new URL(qr.getQrCode()));
             Image scaled = img.getScaledInstance(300, 300, Image.SCALE_SMOOTH);
@@ -299,7 +295,7 @@ public class PaymentScreen extends BaseScreenHandler {
     private void onPaymentSuccess() {
         // Process order: insert into database, reduce stock, send email
         boolean success = false;
-        
+
         if (currentMethod == PaymentMethod.VIETQR) {
             // For QR payment
             String transactionNo = "QR_" + System.currentTimeMillis();
@@ -307,10 +303,12 @@ public class PaymentScreen extends BaseScreenHandler {
             String bankTransactionNo = transactionNo;
             success = orderService.processQRPaymentOrder(invoice, transactionNo, bankCode, bankTransactionNo);
         } else if (currentMethod == PaymentMethod.PAYPAL) {
-            // For PayPal payment - use stored order ID if available, otherwise use placeholder
-            String paypalOrderId = currentPayPalOrderId != null ? currentPayPalOrderId : "PAYPAL_" + System.currentTimeMillis();
+            // For PayPal payment - use stored order ID if available, otherwise use
+            // placeholder
+            String paypalOrderId = currentPayPalOrderId != null ? currentPayPalOrderId
+                    : "PAYPAL_" + System.currentTimeMillis();
             success = orderService.processPayPalPaymentOrder(invoice, paypalOrderId);
-            
+
             // If we have the actual PayPal order ID, store the mapping
             if (currentPayPalOrderId != null) {
                 paymentContextService.storePayPalOrder(currentPayPalOrderId, invoice);
@@ -330,8 +328,8 @@ public class PaymentScreen extends BaseScreenHandler {
                     "Warning",
                     JOptionPane.WARNING_MESSAGE);
         }
-        
-        cartController.clear();
+
+        CartController.getInstance().clear();
         navigateHomeAndClearStack();
     }
 

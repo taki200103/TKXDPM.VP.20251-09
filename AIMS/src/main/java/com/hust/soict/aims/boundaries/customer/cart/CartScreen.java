@@ -11,17 +11,13 @@ import com.hust.soict.aims.entities.CartItem;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class CartScreen extends BaseScreenHandler {
-
-    private final CartController cartController;
-
     private JPanel itemsPanel;
     private JLabel totalItemsLabel;
     private JLabel subtotalLabel;
     private RoundedButton placeOrderButton;
 
-    public CartScreen(CartController cartController, BaseScreenHandler parent) {
+    public CartScreen(BaseScreenHandler parent) {
         super("Shopping Cart", parent, false);
-        this.cartController = cartController;
         initializeScreen();
     }
 
@@ -127,7 +123,7 @@ public class CartScreen extends BaseScreenHandler {
     private void buildItemPanels() {
         itemsPanel.removeAll();
 
-        for (CartItem item : cartController.getItems()) {
+        for (CartItem item : CartController.getInstance().getItems()) {
             CartItemPanel panel = new CartItemPanel(item);
             bindItemEvents(panel, item);
             itemsPanel.add(panel);
@@ -137,7 +133,7 @@ public class CartScreen extends BaseScreenHandler {
     private void bindItemEvents(CartItemPanel panel, CartItem item) {
 
         panel.setOnQuantityChanged(e -> {
-            cartController.updateQuantity(
+            CartController.getInstance().updateQuantity(
                     item.getProduct().getId(),
                     panel.getCurrentQuantity());
             updateSummary();
@@ -154,13 +150,13 @@ public class CartScreen extends BaseScreenHandler {
                 JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
-            cartController.remove(item.getProduct().getId());
+            CartController.getInstance().remove(item.getProduct().getId());
             refresh();
         }
     }
 
     private void handlePlaceOrder() {
-        if (cartController.isEmpty()) {
+        if (CartController.getInstance().isEmpty()) {
             JOptionPane.showMessageDialog(
                     this,
                     "Cart is empty! Please add items before placing order.",
@@ -169,7 +165,7 @@ public class CartScreen extends BaseScreenHandler {
             return;
         }
 
-        for (CartItem item : cartController.getItems()) {
+        for (CartItem item : CartController.getInstance().getItems()) {
             int orderedQty = item.getQuantity();
             int stockQty = item.getProduct().getQuantity();
 
@@ -185,21 +181,18 @@ public class CartScreen extends BaseScreenHandler {
             }
         }
 
-        navigateTo(new DeliveryInfoScreen(
-                this,
-                cartController,
-                new PlaceOrderController()));
+        navigateTo(new DeliveryInfoScreen(this, new PlaceOrderController()));
     }
 
     private void updateSummary() {
         totalItemsLabel.setText(
-                "Total Items: " + cartController.getTotalQuantity());
+                "Total Items: " + CartController.getInstance().getTotalQuantity());
         subtotalLabel.setText(
-                String.format("Subtotal: %.0f VNĐ", cartController.getSubtotal()));
+                String.format("Subtotal: %.0f VNĐ", CartController.getInstance().getSubtotal()));
     }
 
     private void updateActionState() {
-        placeOrderButton.setEnabled(!cartController.isEmpty());
+        placeOrderButton.setEnabled(!CartController.getInstance().isEmpty());
     }
 
     private JLabel createLabel(String text, Font font) {

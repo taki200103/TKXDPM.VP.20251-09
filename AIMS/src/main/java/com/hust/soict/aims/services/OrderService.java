@@ -2,7 +2,6 @@ package com.hust.soict.aims.services;
 
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.controls.Database;
-import com.hust.soict.aims.utils.EmailService;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;

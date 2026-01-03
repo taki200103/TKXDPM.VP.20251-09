@@ -9,7 +9,6 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.boundaries.customer.payment.PaymentScreen;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.controls.PlaceOrderController;
-import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.entities.Invoice;
 import com.hust.soict.aims.entities.CartItem;
 
@@ -19,18 +18,15 @@ public class InvoiceScreen extends BaseScreenHandler {
     private boolean paid = false;
     private final Invoice invoice;
     private final PlaceOrderController placeOrderController;
-    private final CartController cartController;
 
     private JPanel invoiceDetailsPanel;
     private JButton payButton;
 
-    public InvoiceScreen(BaseScreenHandler parent, Invoice invoice,
-            PlaceOrderController placeOrderController, CartController cartController) {
+    public InvoiceScreen(BaseScreenHandler parent, Invoice invoice, PlaceOrderController placeOrderController) {
         super("Invoice & Payment", parent, false);
 
         this.invoice = invoice;
         this.placeOrderController = placeOrderController;
-        this.cartController = cartController;
 
         initializeScreen();
     }
@@ -127,7 +123,7 @@ public class InvoiceScreen extends BaseScreenHandler {
     protected void bindEvents() {
         payButton.addActionListener(e -> {
             // Navigate to PaymentScreen
-            PaymentScreen paymentScreen = new PaymentScreen(this, invoice, placeOrderController, cartController);
+            PaymentScreen paymentScreen = new PaymentScreen(this, invoice, placeOrderController);
             navigateTo(paymentScreen);
         });
     }

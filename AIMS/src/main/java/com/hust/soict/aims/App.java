@@ -14,9 +14,9 @@ public class App {
 	public static void main(String[] args) {
 		// Disable headless mode to allow Swing GUI to work
 		System.setProperty("java.awt.headless", "false");
-		
+
 		// Start embedded Spring Boot for PayPal callbacks
-		ConfigurableApplicationContext ctx = EmbeddedTomcat.startAndGetContext(new String[]{});
+		ConfigurableApplicationContext ctx = EmbeddedTomcat.startAndGetContext(new String[] {});
 		PayByCreditCardController paymentController = ctx.getBean(PayByCreditCardController.class);
 
 		// Initialize ServiceProvider with payment controller
@@ -25,10 +25,9 @@ public class App {
 
 		SwingUtilities.invokeLater(() -> {
 			ProductController productController = new ProductController();
-			CartController cartController = new CartController();
 
-			Homepage homepage = new Homepage(productController, cartController);
-		
+			Homepage homepage = new Homepage(productController);
+
 			ScreenNavigator.getInstance().navigateTo(homepage);
 		});
 	}
