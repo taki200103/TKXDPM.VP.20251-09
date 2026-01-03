@@ -8,14 +8,12 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.boundaries.customer.invoice.InvoiceScreen;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.entities.DeliveryInfo;
-import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.controls.PlaceOrderController;
 import com.hust.soict.aims.data.VietnamAddressData;
 
 import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class DeliveryInfoScreen extends BaseScreenHandler {
-    private final CartController cartController;
     private final PlaceOrderController placeOrderController;
     private DeliveryInfo deliveryInfo;
 
@@ -30,10 +28,9 @@ public class DeliveryInfoScreen extends BaseScreenHandler {
 
     private JButton confirmButton;
 
-    public DeliveryInfoScreen(BaseScreenHandler parent, CartController cartController,
+    public DeliveryInfoScreen(BaseScreenHandler parent,
             PlaceOrderController placeOrderController) {
         super("Delivery Information", parent, false);
-        this.cartController = cartController;
         this.placeOrderController = placeOrderController;
 
         initializeScreen();
@@ -72,7 +69,7 @@ public class DeliveryInfoScreen extends BaseScreenHandler {
         addressArea.setLineWrap(true);
         addressArea.setWrapStyleWord(true);
 
-        orderSummaryPanel = new OrderSummaryPanel(cartController, placeOrderController);
+        orderSummaryPanel = new OrderSummaryPanel(placeOrderController);
 
         confirmButton = new RoundedButton("Confirm Order");
         confirmButton.setFont(FONT_BUTTON_LARGE);
@@ -230,7 +227,7 @@ public class DeliveryInfoScreen extends BaseScreenHandler {
         deliveryInfo.setDistrict(district != null ? district : "");
         deliveryInfo.setAddressLine(address);
 
-        PlaceOrderController.PlaceOrderResult result = placeOrderController.placeOrder(cartController, deliveryInfo);
+        PlaceOrderController.PlaceOrderResult result = placeOrderController.placeOrder(deliveryInfo);
 
         if (!result.success) {
             JOptionPane.showMessageDialog(this,
@@ -240,8 +237,7 @@ public class DeliveryInfoScreen extends BaseScreenHandler {
             return;
         }
 
-        InvoiceScreen invoiceScreen = new InvoiceScreen(
-                this, result.invoice, placeOrderController, cartController);
+        InvoiceScreen invoiceScreen = new InvoiceScreen(this, result.invoice, placeOrderController);
         navigateTo(invoiceScreen);
     }
 

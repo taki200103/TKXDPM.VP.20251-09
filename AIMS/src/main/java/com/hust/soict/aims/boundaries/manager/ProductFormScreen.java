@@ -1,17 +1,17 @@
 package com.hust.soict.aims.boundaries.manager;
 
 import javax.swing.*;
-import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
-import com.hust.soict.aims.controls.Database;
+import com.hust.soict.aims.controls.ProductController;
+import com.hust.soict.aims.dao.TrackDAO;
+import com.hust.soict.aims.dao.impl.TrackDAOImpl;
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.entities.enums.*;
 import com.hust.soict.aims.entities.Track;
 import com.hust.soict.aims.components.RoundedButton;
-import com.hust.soict.aims.components.RoundedPanel;
 import com.hust.soict.aims.utils.ImageUtils;
 import static com.hust.soict.aims.utils.UIConstant.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -38,25 +38,32 @@ public class ProductFormScreen extends BaseScreenHandler {
     // Type-specific fields
     private JPanel typeSpecificPanel;
     private List<JComponent> typeSpecificFields;
-    
+
     // Track list management for CD
     private JPanel trackListPanel;
     private List<TrackRow> trackRows;
     private JPanel trackSectionPanel; // Track list section panel
     private JPanel mainContentPanel; // Reference to main content panel for dynamic section management
-    
+
     // Image upload fields
     private File selectedImageFile;
     private JLabel imagePreviewLabel;
     private RoundedButton uploadImageButton;
-    
+
     // Scroll pane reference for resetting scroll position
     private JScrollPane mainScrollPane;
+    
+    // DAO dependencies
+    private ProductController productController;
+    private TrackDAO trackDAO;
 
     public ProductFormScreen(BaseScreenHandler parent, Product product) {
         super(product == null ? "Add Product" : "Edit Product", parent, false);
         this.product = product;
         this.parentScreen = parent;
+        // Initialize DAO dependencies
+        this.productController = new ProductController();
+        this.trackDAO = new TrackDAOImpl();
         // Store reference to ManagerMainScreen if parent is ManagerMainScreen
         if (parent instanceof ManagerMainScreen) {
             this.managerMainScreen = (ManagerMainScreen) parent;
@@ -82,7 +89,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         descriptionArea = new JTextArea(4, 40);
         barcodeField = new JTextField();
         quantityField = new JTextField();
-        
+
         // Initialize condition and status dropdowns
         conditionComboBox = new JComboBox<>(ProductCondition.values());
         conditionComboBox.setFont(FONT_BODY);
@@ -97,7 +104,7 @@ public class ProductFormScreen extends BaseScreenHandler {
                 return this;
             }
         });
-        
+
         statusComboBox = new JComboBox<>(ProductStatus.values());
         statusComboBox.setFont(FONT_BODY);
         statusComboBox.setRenderer(new DefaultListCellRenderer() {
@@ -111,18 +118,18 @@ public class ProductFormScreen extends BaseScreenHandler {
                 return this;
             }
         });
-        
+
         typeSpecificPanel = new JPanel();
         typeSpecificPanel.setLayout(new BoxLayout(typeSpecificPanel, BoxLayout.Y_AXIS));
         typeSpecificPanel.setOpaque(false);
         typeSpecificFields = new ArrayList<>();
-        
+
         // Initialize track list management
         trackListPanel = new JPanel();
         trackListPanel.setLayout(new BoxLayout(trackListPanel, BoxLayout.Y_AXIS));
         trackListPanel.setOpaque(false);
         trackRows = new ArrayList<>();
-        
+
         // Initialize image upload components
         selectedImageFile = null;
         imagePreviewLabel = new JLabel();
@@ -138,7 +145,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         imagePreviewLabel.setOpaque(true);
         imagePreviewLabel.setText("<html><center>No Image<br>Selected</center></html>");
         imagePreviewLabel.setForeground(TEXT_SECONDARY);
-        
+
         uploadImageButton = new RoundedButton("Upload Image", 8);
         uploadImageButton.setFont(FONT_BUTTON);
         uploadImageButton.setBackground(PRIMARY_COLOR);
@@ -146,13 +153,13 @@ public class ProductFormScreen extends BaseScreenHandler {
         uploadImageButton.setCursor(CURSOR_HAND);
         uploadImageButton.setPreferredSize(new Dimension(150, 35));
         uploadImageButton.addActionListener(e -> selectImageFile());
-        
+
         // Update type-specific fields when type changes
         typeComboBox.addActionListener(e -> {
             updateTypeSpecificFields();
             updateTrackListSectionVisibility();
         });
-        
+
         if (product != null) {
             loadProductData();
         } else {
@@ -164,12 +171,12 @@ public class ProductFormScreen extends BaseScreenHandler {
     protected void setupLayout() {
         setLayout(new BorderLayout(SPACING_MEDIUM, SPACING_MEDIUM));
         setBackground(BACKGROUND_LIGHT);
-        
+
         // Wrapper panel with padding (exactly like ProductManagementScreen)
         JPanel wrapperPanel = new JPanel(new BorderLayout());
         wrapperPanel.setBackground(BACKGROUND_LIGHT);
         wrapperPanel.setBorder(PADDING_MEDIUM);
-        
+
         // Main panel with form content
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
@@ -233,15 +240,15 @@ public class ProductFormScreen extends BaseScreenHandler {
         JPanel imageSectionPanel = createSectionPanel("Product Image");
         JPanel imagePanel = new JPanel(new BorderLayout(SPACING_MEDIUM, SPACING_SMALL));
         imagePanel.setOpaque(false);
-        
+
         JPanel imagePreviewPanel = new JPanel(new BorderLayout());
         imagePreviewPanel.setOpaque(false);
         imagePreviewPanel.add(imagePreviewLabel, BorderLayout.CENTER);
-        
+
         JPanel uploadButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         uploadButtonPanel.setOpaque(false);
         uploadButtonPanel.add(uploadImageButton);
-        
+
         imagePanel.add(imagePreviewPanel, BorderLayout.CENTER);
         imagePanel.add(uploadButtonPanel, BorderLayout.SOUTH);
         imageSectionPanel.add(imagePanel);
@@ -252,7 +259,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         JPanel typeSectionPanel = createSectionPanel("Type-Specific Information");
         typeSectionPanel.add(typeSpecificPanel);
         mainPanel.add(typeSectionPanel);
-        
+
         // Section 5: Track List (only for CD) - will be shown/hidden dynamically
         trackSectionPanel = createTrackListSection();
         String currentType = product != null ? product.getType() : (String) typeComboBox.getSelectedItem();
@@ -303,10 +310,10 @@ public class ProductFormScreen extends BaseScreenHandler {
         mainScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         mainScrollPane.getVerticalScrollBar().setUnitIncrement(16);
         mainScrollPane.getViewport().setBackground(BACKGROUND_WHITE);
-        
+
         // Add scroll pane to wrapper panel (exactly like ProductManagementScreen)
         wrapperPanel.add(mainScrollPane, BorderLayout.CENTER);
-        
+
         // Add wrapper panel to content pane
         add(wrapperPanel, BorderLayout.CENTER);
         add(bottomButtonPanel, BorderLayout.SOUTH);
@@ -325,15 +332,13 @@ public class ProductFormScreen extends BaseScreenHandler {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(BACKGROUND_WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createTitledBorder(
-                BorderFactory.createLineBorder(BORDER_LIGHT, 1),
-                title,
-                0, 0,
-                FONT_BUTTON,
-                PRIMARY_COLOR
-            ),
-            BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM)
-        ));
+                BorderFactory.createTitledBorder(
+                        BorderFactory.createLineBorder(BORDER_LIGHT, 1),
+                        title,
+                        0, 0,
+                        FONT_BUTTON,
+                        PRIMARY_COLOR),
+                BorderFactory.createEmptyBorder(SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM, SPACING_MEDIUM)));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
         return panel;
     }
@@ -349,7 +354,7 @@ public class ProductFormScreen extends BaseScreenHandler {
     private JPanel createLabeledField(String label, JComponent field) {
         return createLabeledField(label, field, false);
     }
-    
+
     private JPanel createLabeledField(String label, JComponent field, boolean required) {
         JPanel panel = new JPanel(new BorderLayout(SPACING_SMALL, 0));
         panel.setOpaque(false);
@@ -464,17 +469,17 @@ public class ProductFormScreen extends BaseScreenHandler {
 
         typeSpecificPanel.revalidate();
         typeSpecificPanel.repaint();
-        
+
         // Update track list section visibility
         updateTrackListSectionVisibility();
-        
+
         // Repaint parent to update scroll
         SwingUtilities.invokeLater(() -> {
             revalidate();
             repaint();
         });
     }
-    
+
     /**
      * Update track list section visibility based on product type
      */
@@ -482,10 +487,10 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (trackSectionPanel == null || mainContentPanel == null) {
             return;
         }
-        
+
         String type = (String) typeComboBox.getSelectedItem();
         Container parent = trackSectionPanel.getParent();
-        
+
         if (type != null && type.equals("cd")) {
             // Show track section if not already visible
             if (parent == null) {
@@ -512,7 +517,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             }
             trackSectionPanel.setVisible(false);
         }
-        
+
         if (mainContentPanel != null) {
             mainContentPanel.revalidate();
             mainContentPanel.repaint();
@@ -532,7 +537,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         dimensionField.setText(product.getDimension());
         descriptionArea.setText(product.getDescription());
         barcodeField.setText(product.getBarcode() != null ? product.getBarcode() : "");
-        
+
         // Load condition and status
         if (product.getCondition() != null) {
             conditionComboBox.setSelectedItem(ProductCondition.fromString(product.getCondition()));
@@ -608,7 +613,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             }
         }
     }
-    
+
     private void setTypeFieldCombo(int index, Object value) {
         if (index < typeSpecificFields.size()) {
             JPanel panel = (JPanel) typeSpecificFields.get(index);
@@ -647,27 +652,31 @@ public class ProductFormScreen extends BaseScreenHandler {
             titleField.requestFocus();
             return;
         }
-        
+
         if (originalValueField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Original Value is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Original Value is required (*)", "Validation Error",
+                    JOptionPane.ERROR_MESSAGE);
             originalValueField.requestFocus();
             return;
         }
-        
+
         if (currentPriceField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Current Price is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Current Price is required (*)", "Validation Error",
+                    JOptionPane.ERROR_MESSAGE);
             currentPriceField.requestFocus();
             return;
         }
-        
+
         if (weightField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Weight is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Weight is required (*)", "Validation Error",
+                    JOptionPane.ERROR_MESSAGE);
             weightField.requestFocus();
             return;
         }
-        
+
         if (quantityField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Quantity is required (*)", "Validation Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Quantity is required (*)", "Validation Error",
+                    JOptionPane.ERROR_MESSAGE);
             quantityField.requestFocus();
             return;
         }
@@ -677,31 +686,35 @@ public class ProductFormScreen extends BaseScreenHandler {
             double currentPrice = Double.parseDouble(currentPriceField.getText().trim());
             double weight = Double.parseDouble(weightField.getText().trim());
             int quantity = Integer.parseInt(quantityField.getText().trim());
-            
+
             if (quantity < 0) {
-                JOptionPane.showMessageDialog(this, "Quantity must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Quantity must be greater than or equal to 0", "Validation Error",
+                        JOptionPane.ERROR_MESSAGE);
                 quantityField.requestFocus();
                 return;
             }
-            
+
             if (originalValue < 0) {
-                JOptionPane.showMessageDialog(this, "Original Value must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Original Value must be greater than or equal to 0",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
                 originalValueField.requestFocus();
                 return;
             }
-            
+
             if (currentPrice < 0) {
-                JOptionPane.showMessageDialog(this, "Current Price must be greater than or equal to 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Current Price must be greater than or equal to 0",
+                        "Validation Error", JOptionPane.ERROR_MESSAGE);
                 currentPriceField.requestFocus();
                 return;
             }
-            
+
             if (weight <= 0) {
-                JOptionPane.showMessageDialog(this, "Weight must be greater than 0", "Validation Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Weight must be greater than 0", "Validation Error",
+                        JOptionPane.ERROR_MESSAGE);
                 weightField.requestFocus();
                 return;
             }
-            
+
             String dimension = dimensionField.getText().trim();
             String description = descriptionArea.getText().trim();
             String barcode = barcodeField.getText().trim();
@@ -710,7 +723,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             // Get condition and status
             ProductCondition condition = (ProductCondition) conditionComboBox.getSelectedItem();
             ProductStatus status = (ProductStatus) statusComboBox.getSelectedItem();
-            
+
             Product newProduct = createProductFromFields(type, originalValue, currentPrice, weight, dimension,
                     description, barcode, condition, status, quantity);
 
@@ -719,21 +732,21 @@ public class ProductFormScreen extends BaseScreenHandler {
             if (type.equals("cd")) {
                 tracksToSave = getTrackList();
             }
-            
+
             if (product == null) {
                 // Add new product
-                long newId = Database.addProduct(newProduct);
+                long newId = productController.addProduct(newProduct);
                 if (newId > 0) {
                     // Save tracks for CD
                     if (tracksToSave != null && !tracksToSave.isEmpty()) {
-                        Database.saveTracks(newId, tracksToSave);
+                        trackDAO.saveTracks(newId, tracksToSave);
                     }
-                    
+
                     // Save image if one was selected
                     if (selectedImageFile != null) {
                         ImageUtils.saveProductImage(selectedImageFile, newId);
                     }
-                    
+
                     JOptionPane.showMessageDialog(this, "Product added successfully", "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                     // Go back to ProductManagement and refresh
@@ -752,17 +765,17 @@ public class ProductFormScreen extends BaseScreenHandler {
             } else {
                 // Update existing product
                 newProduct.setId(product.getId());
-                if (Database.updateProduct(newProduct)) {
+                if (productController.updateProduct(newProduct)) {
                     // Save tracks for CD
                     if (tracksToSave != null) {
-                        Database.saveTracks(product.getId(), tracksToSave);
+                        trackDAO.saveTracks(product.getId(), tracksToSave);
                     }
-                    
+
                     // Save image if one was selected
                     if (selectedImageFile != null) {
                         ImageUtils.saveProductImage(selectedImageFile, product.getId());
                     }
-                    
+
                     JOptionPane.showMessageDialog(this, "Product updated successfully", "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                     // Go back to ProductManagement and refresh
@@ -786,7 +799,8 @@ public class ProductFormScreen extends BaseScreenHandler {
     }
 
     private Product createProductFromFields(String type, double originalValue, double currentPrice, double weight,
-            String dimension, String description, String barcode, ProductCondition condition, ProductStatus status, int quantity) {
+            String dimension, String description, String barcode, ProductCondition condition, ProductStatus status,
+            int quantity) {
         String title = titleField.getText().trim();
         long id = product != null ? product.getId() : 0;
 
@@ -808,8 +822,10 @@ public class ProductFormScreen extends BaseScreenHandler {
                 b.setGenre(getTypeField(7));
                 b.setBarcode(barcode.isEmpty() ? null : barcode);
                 b.setQuantity(quantity);
-                if (condition != null) b.setCondition(condition.getValue());
-                if (status != null) b.setStatus(status.getValue());
+                if (condition != null)
+                    b.setCondition(condition.getValue());
+                if (status != null)
+                    b.setStatus(status.getValue());
                 p = b;
                 break;
             }
@@ -820,8 +836,10 @@ public class ProductFormScreen extends BaseScreenHandler {
                 c.setReleaseDate(getTypeField(4));
                 c.setBarcode(barcode.isEmpty() ? null : barcode);
                 c.setQuantity(quantity);
-                if (condition != null) c.setCondition(condition.getValue());
-                if (status != null) c.setStatus(status.getValue());
+                if (condition != null)
+                    c.setCondition(condition.getValue());
+                if (status != null)
+                    c.setStatus(status.getValue());
                 // Store track list for saving
                 List<Track> tracks = getTrackList();
                 c.setTrackList(new ArrayList<>()); // Will be populated from tracks
@@ -855,8 +873,10 @@ public class ProductFormScreen extends BaseScreenHandler {
                 d.setGenre(getTypeField(7));
                 d.setBarcode(barcode.isEmpty() ? null : barcode);
                 d.setQuantity(quantity);
-                if (condition != null) d.setCondition(condition.getValue());
-                if (status != null) d.setStatus(status.getValue());
+                if (condition != null)
+                    d.setCondition(condition.getValue());
+                if (status != null)
+                    d.setStatus(status.getValue());
                 p = d;
                 break;
             }
@@ -870,8 +890,10 @@ public class ProductFormScreen extends BaseScreenHandler {
                 n.setSections(getTypeField(7));
                 n.setBarcode(barcode.isEmpty() ? null : barcode);
                 n.setQuantity(quantity);
-                if (condition != null) n.setCondition(condition.getValue());
-                if (status != null) n.setStatus(status.getValue());
+                if (condition != null)
+                    n.setCondition(condition.getValue());
+                if (status != null)
+                    n.setStatus(status.getValue());
                 p = n;
                 break;
             }
@@ -879,8 +901,10 @@ public class ProductFormScreen extends BaseScreenHandler {
                 p = new Product(id, title, originalValue, currentPrice, weight, dimension, description,
                         barcode.isEmpty() ? null : barcode, null);
                 p.setQuantity(quantity);
-                if (condition != null) p.setCondition(condition.getValue());
-                if (status != null) p.setStatus(status.getValue());
+                if (condition != null)
+                    p.setCondition(condition.getValue());
+                if (status != null)
+                    p.setStatus(status.getValue());
                 break;
             }
         }
@@ -896,14 +920,14 @@ public class ProductFormScreen extends BaseScreenHandler {
         fileChooser.setDialogTitle("Select Product Image");
         fileChooser.setFileFilter(new FileNameExtensionFilter(
                 "Image Files (*.jpg, *.jpeg, *.png, *.gif)", "jpg", "jpeg", "png", "gif"));
-        
+
         int result = fileChooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             selectedImageFile = fileChooser.getSelectedFile();
             displayImagePreview(selectedImageFile);
         }
     }
-    
+
     /**
      * Display image preview in the preview label
      */
@@ -913,20 +937,20 @@ public class ProductFormScreen extends BaseScreenHandler {
             imagePreviewLabel.setText("<html><center>No Image<br>Selected</center></html>");
             return;
         }
-        
+
         try {
             ImageIcon icon = new ImageIcon(imageFile.getAbsolutePath());
             Image image = icon.getImage();
-            
+
             // Scale image to fit preview label (200x200)
             int previewSize = 180; // Leave some padding
             int width = image.getWidth(null);
             int height = image.getHeight(null);
-            
+
             double scale = Math.min((double) previewSize / width, (double) previewSize / height);
             int scaledWidth = (int) (width * scale);
             int scaledHeight = (int) (height * scale);
-            
+
             Image scaledImage = image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
             imagePreviewLabel.setIcon(new ImageIcon(scaledImage));
             imagePreviewLabel.setText(null);
@@ -936,7 +960,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * Load existing product image if available
      */
@@ -944,13 +968,14 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (product == null || product.getId() <= 0) {
             return;
         }
-        
+
         String imagePath = ImageUtils.getProductImagePath(product.getId());
         if (imagePath != null) {
             File imageFile = new File(imagePath);
             if (imageFile.exists()) {
                 displayImagePreview(imageFile);
-                // Don't set selectedImageFile here - only set it when user explicitly selects a new image
+                // Don't set selectedImageFile here - only set it when user explicitly selects a
+                // new image
             }
         }
     }
@@ -962,13 +987,13 @@ public class ProductFormScreen extends BaseScreenHandler {
     private JPanel createTrackListSection() {
         // Create section panel with border and title
         JPanel sectionPanel = createSectionPanel("Track List");
-        
+
         // Track list container with scroll
         trackListPanel.removeAll();
         trackRows.clear();
         trackListPanel.setLayout(new BoxLayout(trackListPanel, BoxLayout.Y_AXIS));
         trackListPanel.setBackground(BACKGROUND_WHITE);
-        
+
         JScrollPane scrollPane = new JScrollPane(trackListPanel);
         scrollPane.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(BORDER_LIGHT, 1),
@@ -979,7 +1004,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         scrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
         sectionPanel.add(scrollPane);
         sectionPanel.add(Box.createVerticalStrut(SPACING_SMALL));
-        
+
         // Add track button - centered
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
         buttonPanel.setOpaque(false);
@@ -993,10 +1018,10 @@ public class ProductFormScreen extends BaseScreenHandler {
         buttonPanel.add(addTrackButton);
         addTrackButton.addActionListener(e -> addTrackRow());
         sectionPanel.add(buttonPanel);
-        
+
         return sectionPanel;
     }
-    
+
     /**
      * Add a new track row
      */
@@ -1007,7 +1032,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         trackListPanel.revalidate();
         trackListPanel.repaint();
     }
-    
+
     /**
      * Remove a track row
      */
@@ -1021,7 +1046,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         trackListPanel.revalidate();
         trackListPanel.repaint();
     }
-    
+
     /**
      * Load track list from CD product
      */
@@ -1029,12 +1054,12 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (product == null || !(product instanceof CD)) {
             return;
         }
-        
+
         CD cd = (CD) product;
-        
+
         // Try to load tracks from database first
-        List<Track> tracks = Database.loadTracks(cd.getId());
-        
+        List<Track> tracks = trackDAO.loadTracks(cd.getId());
+
         // If no tracks from database, try from trackList (for backward compatibility)
         if (tracks == null || tracks.isEmpty()) {
             List<String> trackList = cd.getTrackList();
@@ -1045,7 +1070,7 @@ public class ProductFormScreen extends BaseScreenHandler {
                     // Parse track info (format: "Title (M:SS)" or just "Title")
                     String title = trackInfo;
                     Integer length = null;
-                    
+
                     if (trackInfo.contains("(") && trackInfo.contains(")")) {
                         int start = trackInfo.indexOf("(");
                         int end = trackInfo.indexOf(")");
@@ -1060,16 +1085,18 @@ public class ProductFormScreen extends BaseScreenHandler {
                                     int seconds = Integer.parseInt(parts[1]);
                                     // Convert to total minutes (round to nearest minute)
                                     length = (int) Math.round((minutes * 60 + seconds) / 60.0);
-                                } catch (NumberFormatException ignored) {}
+                                } catch (NumberFormatException ignored) {
+                                }
                             } else {
                                 // Try to parse as minutes directly
                                 try {
                                     length = Integer.parseInt(timeStr);
-                                } catch (NumberFormatException ignored) {}
+                                } catch (NumberFormatException ignored) {
+                                }
                             }
                         }
                     }
-                    
+
                     Track track = new Track();
                     track.setTitle(title);
                     track.setLength(length);
@@ -1078,26 +1105,25 @@ public class ProductFormScreen extends BaseScreenHandler {
                 }
             }
         }
-        
+
         // Display tracks in UI
         if (tracks != null && !tracks.isEmpty()) {
             trackRows.clear();
             trackListPanel.removeAll();
-            
+
             for (Track track : tracks) {
                 // Length is always stored in minutes, no conversion needed
                 TrackRow trackRow = new TrackRow(
-                    track.getTrackNumber() != null ? track.getTrackNumber() : trackRows.size() + 1,
-                    track.getTitle(),
-                    track.getLength()
-                );
+                        track.getTrackNumber() != null ? track.getTrackNumber() : trackRows.size() + 1,
+                        track.getTitle(),
+                        track.getLength());
                 trackRows.add(trackRow);
                 trackListPanel.add(trackRow.getPanel());
             }
-            
+
             trackListPanel.revalidate();
             trackListPanel.repaint();
-            
+
             // Reset scroll position to top after loading tracks
             if (mainScrollPane != null) {
                 SwingUtilities.invokeLater(() -> {
@@ -1106,7 +1132,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             }
         }
     }
-    
+
     /**
      * Get track list from UI
      * Returns list of Track objects with title, length, and track_number set
@@ -1117,7 +1143,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         for (TrackRow row : trackRows) {
             String title = row.getTitle();
             Integer length = row.getLength();
-            
+
             if (title != null && !title.trim().isEmpty()) {
                 Track track = new Track();
                 track.setTitle(title.trim());
@@ -1130,7 +1156,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         }
         return tracks;
     }
-    
+
     /**
      * Inner class to represent a track row in the UI
      */
@@ -1139,25 +1165,25 @@ public class ProductFormScreen extends BaseScreenHandler {
         private JTextField titleField;
         private JTextField lengthField;
         private int trackNumber;
-        
+
         public TrackRow(int trackNumber) {
             this(trackNumber, "", null);
         }
-        
+
         public TrackRow(int trackNumber, String title, Integer length) {
             this.trackNumber = trackNumber;
-            
+
             panel = new JPanel(new BorderLayout(SPACING_SMALL, 0));
             panel.setOpaque(false);
             panel.setBorder(BorderFactory.createEmptyBorder(SPACING_XSMALL, 0, SPACING_XSMALL, 0));
             panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
             panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-            
+
             // Left panel with track number and labels
             JPanel leftPanel = new JPanel();
             leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.X_AXIS));
             leftPanel.setOpaque(false);
-            
+
             // Track number label (orange color) - displayed prominently
             JLabel numberLabel = new JLabel("Track #" + trackNumber + ":");
             numberLabel.setFont(new Font(FONT_FAMILY, Font.BOLD, FONT_SIZE_BODY));
@@ -1165,7 +1191,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             numberLabel.setPreferredSize(new Dimension(80, 30));
             leftPanel.add(numberLabel);
             leftPanel.add(Box.createHorizontalStrut(SPACING_SMALL));
-            
+
             // Title label
             JLabel titleLabel = new JLabel("Title:");
             titleLabel.setFont(FONT_SMALL);
@@ -1173,7 +1199,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             titleLabel.setPreferredSize(new Dimension(50, 30));
             leftPanel.add(titleLabel);
             leftPanel.add(Box.createHorizontalStrut(SPACING_XSMALL));
-            
+
             // Title field
             titleField = new JTextField(title);
             titleField.setFont(FONT_BODY);
@@ -1182,14 +1208,14 @@ public class ProductFormScreen extends BaseScreenHandler {
                     BorderFactory.createEmptyBorder(5, 10, 5, 10)));
             titleField.setPreferredSize(new Dimension(250, 30));
             leftPanel.add(titleField);
-            
+
             panel.add(leftPanel, BorderLayout.CENTER);
-            
+
             // Right panel with length and remove button
             JPanel rightPanel = new JPanel();
             rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.X_AXIS));
             rightPanel.setOpaque(false);
-            
+
             // Length label
             JLabel lengthLabel = new JLabel("Length:");
             lengthLabel.setFont(FONT_SMALL);
@@ -1197,7 +1223,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             lengthLabel.setPreferredSize(new Dimension(60, 30));
             rightPanel.add(lengthLabel);
             rightPanel.add(Box.createHorizontalStrut(SPACING_XSMALL));
-            
+
             // Length field (in minutes)
             String lengthText = "";
             if (length != null) {
@@ -1214,7 +1240,7 @@ public class ProductFormScreen extends BaseScreenHandler {
             lengthField.setToolTipText("Length in minutes (e.g., 3 or 3.5)");
             rightPanel.add(lengthField);
             rightPanel.add(Box.createHorizontalStrut(SPACING_SMALL));
-            
+
             // Remove button
             RoundedButton removeButton = new RoundedButton("×", 4);
             removeButton.setFont(new Font(FONT_FAMILY, Font.BOLD, 16));
@@ -1224,18 +1250,18 @@ public class ProductFormScreen extends BaseScreenHandler {
             removeButton.setPreferredSize(new Dimension(30, 30));
             removeButton.addActionListener(e -> removeTrackRow(this));
             rightPanel.add(removeButton);
-            
+
             panel.add(rightPanel, BorderLayout.EAST);
         }
-        
+
         public JPanel getPanel() {
             return panel;
         }
-        
+
         public String getTitle() {
             return titleField.getText();
         }
-        
+
         public Integer getLength() {
             String text = lengthField.getText().trim();
             if (text.isEmpty()) {
@@ -1253,7 +1279,7 @@ public class ProductFormScreen extends BaseScreenHandler {
                 return null;
             }
         }
-        
+
         public void setTrackNumber(int number) {
             this.trackNumber = number;
             // Update track number label (first component in leftPanel)
@@ -1270,7 +1296,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         if (managerMainScreen == null) {
             setExtendedState(JFrame.MAXIMIZED_BOTH);
         }
-        
+
         // Reset scroll position to top when showing the form
         if (mainScrollPane != null) {
             SwingUtilities.invokeLater(() -> {

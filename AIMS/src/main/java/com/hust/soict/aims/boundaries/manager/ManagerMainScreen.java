@@ -6,6 +6,8 @@ import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.boundaries.customer.homepage.Homepage;
 import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.components.RoundedButton;
+import com.hust.soict.aims.controls.CartController;
+import com.hust.soict.aims.controls.ProductController;
 import com.hust.soict.aims.utils.ImageUtils;
 import static com.hust.soict.aims.utils.UIConstant.*;
 
@@ -235,9 +237,8 @@ public class ManagerMainScreen extends BaseScreenHandler {
                 navigateTo(parent);
             } else {
                 // If no parent, create a new homepage
-                com.hust.soict.aims.controls.ProductController productController = new com.hust.soict.aims.controls.ProductController();
-                com.hust.soict.aims.controls.CartController cartController = new com.hust.soict.aims.controls.CartController();
-                Homepage homepage = new Homepage(productController, cartController);
+                ProductController productController = new ProductController();
+                Homepage homepage = new Homepage(productController);
                 navigateTo(homepage);
             }
         }

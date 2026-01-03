@@ -8,8 +8,23 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class CartController {
+    private static volatile CartController instance;
     private final List<CartItem> items = new ArrayList<>();
     private Consumer<Integer> changeListener;
+
+    private CartController() {
+    }
+
+    public static CartController getInstance() {
+        if (instance == null) {
+            synchronized (CartController.class) {
+                if (instance == null) {
+                    instance = new CartController();
+                }
+            }
+        }
+        return instance;
+    }
 
     public void addProduct(Product p, int qty) {
         for (CartItem it : items) {
@@ -26,7 +41,8 @@ public class CartController {
     public void updateQuantity(long productId, int qty) {
         items.removeIf(it -> {
             if (it.getProduct().getId() == productId) {
-                if (qty <= 0) return true;
+                if (qty <= 0)
+                    return true;
                 it.setQuantity(qty);
             }
             return false;
@@ -39,7 +55,9 @@ public class CartController {
         notifyChanged();
     }
 
-    public List<CartItem> getItems() { return new ArrayList<>(items); }
+    public List<CartItem> getItems() {
+        return new ArrayList<>(items);
+    }
 
     public double getSubtotal() {
         return items.stream().mapToDouble(CartItem::getTotalPrice).sum();
@@ -49,13 +67,25 @@ public class CartController {
         return items.stream().mapToDouble(CartItem::getTotalWeight).sum();
     }
 
-    public void clear() { items.clear(); notifyChanged(); }
+    public void clear() {
+        items.clear();
+        notifyChanged();
+    }
 
-    public boolean isEmpty() { return items.isEmpty(); }
+    public boolean isEmpty() {
+        return items.isEmpty();
+    }
 
-    public int getTotalQuantity() { return items.stream().mapToInt(CartItem::getQuantity).sum(); }
+    public int getTotalQuantity() {
+        return items.stream().mapToInt(CartItem::getQuantity).sum();
+    }
 
-    public void setChangeListener(Consumer<Integer> listener) { this.changeListener = listener; }
+    public void setChangeListener(Consumer<Integer> listener) {
+        this.changeListener = listener;
+    }
 
-    private void notifyChanged() { if (changeListener != null) changeListener.accept(getTotalQuantity()); }
+    private void notifyChanged() {
+        if (changeListener != null)
+            changeListener.accept(getTotalQuantity());
+    }
 }

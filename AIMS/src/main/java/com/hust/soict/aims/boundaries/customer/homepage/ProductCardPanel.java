@@ -17,7 +17,6 @@ import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class ProductCardPanel extends RoundedPanel {
     private final Product product;
-    private final CartController cart;
     private final Component parentComponent;
 
     // Callbacks
@@ -31,10 +30,9 @@ public class ProductCardPanel extends RoundedPanel {
      * @param cart    CartController for add to cart action
      * @param parent  Parent component for dialog positioning
      */
-    public ProductCardPanel(Product product, CartController cart, Component parent) {
+    public ProductCardPanel(Product product, Component parent) {
         super(12, true); // Rounded corners with shadow
         this.product = product;
-        this.cart = cart;
         this.parentComponent = parent;
 
         setBackground(BACKGROUND_WHITE);
@@ -166,7 +164,7 @@ public class ProductCardPanel extends RoundedPanel {
         infoPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
 
         // Weight info
-        JLabel weightLabel = new JLabel(String.format("Trọng lượng: %.2f kg", product.getWeight()));
+        JLabel weightLabel = new JLabel(String.format("Weight: %.2f kg", product.getWeight()));
         weightLabel.setFont(FONT_SMALL);
         weightLabel.setForeground(TEXT_SECONDARY);
         weightLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -174,7 +172,7 @@ public class ProductCardPanel extends RoundedPanel {
         infoPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
 
         // Stock quantity info
-        JLabel stockLabel = new JLabel(String.format("Tồn kho: %d", product.getQuantity()));
+        JLabel stockLabel = new JLabel(String.format("Available: %d", product.getQuantity()));
         stockLabel.setFont(FONT_SMALL);
         stockLabel.setForeground(TEXT_SECONDARY);
         stockLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -214,7 +212,7 @@ public class ProductCardPanel extends RoundedPanel {
         addButton.setCursor(CURSOR_HAND);
 
         addButton.addActionListener(e -> {
-            cart.addProduct(product, 1);
+            CartController.getInstance().addProduct(product, 1);
 
             // Show confirmation message
             JOptionPane.showMessageDialog(parentComponent,

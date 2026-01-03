@@ -1,7 +1,8 @@
-package com.hust.soict.aims.utils;
+package com.hust.soict.aims.services;
 
 import com.hust.soict.aims.entities.Invoice;
 import com.hust.soict.aims.entities.Order;
+import com.hust.soict.aims.utils.ConfigLoader;
 import com.hust.soict.aims.entities.CartItem;
 
 import javax.mail.*;

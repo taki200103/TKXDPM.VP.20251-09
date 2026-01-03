@@ -16,7 +16,6 @@ import static com.hust.soict.aims.utils.UIConstant.*;
 
 public class Homepage extends BaseScreenHandler {
     private final ProductController productController;
-    private final CartController cartController;
 
     private JPanel gridPanel;
     private PaginationPanel paginationPanel;
@@ -30,15 +29,13 @@ public class Homepage extends BaseScreenHandler {
     private Double currentMinPrice = null;
     private Double currentMaxPrice = null;
 
-    public Homepage(ProductController productController, CartController cartController) {
+    public Homepage(ProductController productController) {
         super("AIMS - Homepage", null, false);
 
         this.productController = productController;
-        this.cartController = cartController;
 
         // Disable navigation for Homepage
         setNavigationEnabled(false);
-
         initializeScreen();
     }
 
@@ -182,7 +179,7 @@ public class Homepage extends BaseScreenHandler {
 
         // Bind cart button
         cartButton.addActionListener(e -> {
-            if (cartController.isEmpty()) {
+            if (CartController.getInstance().isEmpty()) {
                 JOptionPane.showMessageDialog(this,
                         "Cart is empty",
                         "Cart",
@@ -193,7 +190,7 @@ public class Homepage extends BaseScreenHandler {
         });
 
         // Subscribe to cart changes to update cart button
-        cartController.setChangeListener(count -> {
+        CartController.getInstance().setChangeListener(count -> {
             SwingUtilities.invokeLater(() -> {
                 cartButton.setText(getCartButtonText());
             });
@@ -265,7 +262,7 @@ public class Homepage extends BaseScreenHandler {
 
             // Create product cards using ProductCardPanel component
             for (Product product : products) {
-                ProductCardPanel card = new ProductCardPanel(product, cartController, this);
+                ProductCardPanel card = new ProductCardPanel(product, this);
 
                 // Set callback for info button
                 card.setOnViewInfo(e -> {
@@ -291,7 +288,7 @@ public class Homepage extends BaseScreenHandler {
      * If count > 0, the count will be displayed in red color
      */
     private String getCartButtonText() {
-        int count = cartController.getTotalQuantity();
+        int count = CartController.getInstance().getTotalQuantity();
         if (count > 0) {
             // Use HTML to display count in red color
             return String.format("<html>Cart <font color='#E74C3C'>(%d)</font></html>", count);
@@ -304,7 +301,7 @@ public class Homepage extends BaseScreenHandler {
      * Open cart screen
      */
     private void openCart() {
-        CartScreen cartScreen = new CartScreen(cartController, this);
+        CartScreen cartScreen = new CartScreen(this);
         navigateTo(cartScreen);
     }
 }

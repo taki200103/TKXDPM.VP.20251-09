@@ -2,7 +2,8 @@ package com.hust.soict.aims.services;
 
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.controls.Database;
-import com.hust.soict.aims.utils.EmailService;
+import com.hust.soict.aims.dao.*;
+import com.hust.soict.aims.dao.impl.*;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -16,9 +17,21 @@ import java.util.UUID;
  */
 public class OrderService {
     private EmailService emailService;
+    private OrderDAO orderDAO;
+    private DeliveryInfoDAO deliveryInfoDAO;
+    private OrderMediaDAO orderMediaDAO;
+    private PaymentTransactionDAO paymentTransactionDAO;
+    private InvoiceDAO invoiceDAO;
+    private ProductDAO productDAO;
 
     public OrderService() {
-        this.emailService = new EmailService();
+        this.emailService = EmailService.getInstance();
+        this.orderDAO = new OrderDAOImpl();
+        this.deliveryInfoDAO = new DeliveryInfoDAOImpl();
+        this.orderMediaDAO = new OrderMediaDAOImpl();
+        this.paymentTransactionDAO = new PaymentTransactionDAOImpl();
+        this.invoiceDAO = new InvoiceDAOImpl();
+        this.productDAO = new ProductDAOImpl();
     }
 
     /**
@@ -32,16 +45,16 @@ public class OrderService {
      * 6. Inserts invoice
      * 7. Sends confirmation email
      * 
-     * @param invoice The invoice containing order and payment information
-     * @param paymentMethod Payment method used (e.g., "qr_code", "credit_card")
-     * @param transactionNo Transaction number from payment provider
-     * @param bankCode Bank code (for QR payments)
+     * @param invoice           The invoice containing order and payment information
+     * @param paymentMethod     Payment method used (e.g., "qr_code", "credit_card")
+     * @param transactionNo     Transaction number from payment provider
+     * @param bankCode          Bank code (for QR payments)
      * @param bankTransactionNo Bank transaction number (for QR payments)
      * @return true if successful, false otherwise
      */
-    public boolean processCompletedOrder(Invoice invoice, String paymentMethod, 
-                                         String transactionNo, String bankCode, 
-                                         String bankTransactionNo) {
+    public boolean processCompletedOrder(Invoice invoice, String paymentMethod,
+            String transactionNo, String bankCode,
+            String bankTransactionNo) {
         if (invoice == null || invoice.getOrder() == null) {
             System.err.println("[OrderService] Invalid invoice or order");
             return false;
@@ -49,7 +62,7 @@ public class OrderService {
 
         Order order = invoice.getOrder();
         List<CartItem> items = order.getItems();
-        
+
         if (items == null || items.isEmpty()) {
             System.err.println("[OrderService] Order has no items");
             return false;
@@ -57,21 +70,22 @@ public class OrderService {
 
         try {
             // Start transaction - all operations must succeed
-            // Note: SQLite doesn't support explicit transactions well, but we'll handle errors
-            
-            // 1. Insert Order
-            long orderId = Database.insertOrder(order);
+            // Note: SQLite doesn't support explicit transactions well, but we'll handle
+            // errors
+
+            // 1. Insert Order using DAO
+            long orderId = orderDAO.insertOrder(order);
             order.setOrderId(orderId);
             System.out.println("[OrderService] ✅ Inserted order: " + orderId);
 
-            // 2. Insert DeliveryInfo
+            // 2. Insert DeliveryInfo using DAO
             if (order.getDeliveryInfo() != null) {
                 order.getDeliveryInfo().setOrderId(orderId);
-                Database.insertDeliveryInfo(order.getDeliveryInfo());
+                deliveryInfoDAO.insertDeliveryInfo(order.getDeliveryInfo());
                 System.out.println("[OrderService] ✅ Inserted delivery info for order: " + orderId);
             }
 
-            // 3. Insert OrderMedia and reduce stock
+            // 3. Insert OrderMedia and reduce stock using DAO
             List<OrderMedia> orderMediaList = new ArrayList<>();
             for (CartItem item : items) {
                 // Create OrderMedia entry
@@ -82,21 +96,23 @@ public class OrderService {
                 orderMedia.setPrice(item.getProduct().getCurrentPrice());
                 orderMediaList.add(orderMedia);
 
-                // Reduce stock
-                boolean stockReduced = Database.reduceStock(item.getProduct().getId(), item.getQuantity());
+                // Reduce stock using ProductDAO
+                boolean stockReduced = productDAO.reduceStock(item.getProduct().getId(), item.getQuantity());
                 if (!stockReduced) {
-                    System.err.println("[OrderService] ⚠️ Failed to reduce stock for product: " + item.getProduct().getId());
+                    System.err.println(
+                            "[OrderService] ⚠️ Failed to reduce stock for product: " + item.getProduct().getId());
                     // Continue anyway - stock might have been reduced elsewhere
                 } else {
-                    System.out.println("[OrderService] ✅ Reduced stock for product: " + item.getProduct().getId() + " by " + item.getQuantity());
+                    System.out.println("[OrderService] ✅ Reduced stock for product: " + item.getProduct().getId()
+                            + " by " + item.getQuantity());
                 }
             }
 
-            // Insert all OrderMedia items in batch
-            Database.insertOrderMediaBatch(orderMediaList);
+            // Insert all OrderMedia items in batch using DAO
+            orderMediaDAO.insertOrderMediaBatch(orderMediaList);
             System.out.println("[OrderService] ✅ Inserted " + orderMediaList.size() + " order media items");
 
-            // 4. Insert PaymentTransaction
+            // 4. Insert PaymentTransaction using DAO
             PaymentTransaction paymentTransaction = new PaymentTransaction();
             paymentTransaction.setAmount(invoice.getTotalAmount());
             paymentTransaction.setMethodType(paymentMethod);
@@ -107,14 +123,14 @@ public class OrderService {
             paymentTransaction.setBankTransactionNo(bankTransactionNo);
             paymentTransaction.setCardType(paymentMethod.equals("credit_card") ? "PayPal" : null);
 
-            long paymentTransactionId = Database.insertPaymentTransaction(paymentTransaction);
+            long paymentTransactionId = paymentTransactionDAO.insertPaymentTransaction(paymentTransaction);
             paymentTransaction.setPaymentTransactionId(paymentTransactionId);
             System.out.println("[OrderService] ✅ Inserted payment transaction: " + paymentTransactionId);
 
-            // 5. Insert Invoice
+            // 5. Insert Invoice using DAO
             invoice.setOrderId(orderId);
             invoice.setPaymentTransactionId(paymentTransactionId);
-            long invoiceId = Database.insertInvoice(invoice);
+            long invoiceId = invoiceDAO.insertInvoice(invoice);
             invoice.setInvoiceId(invoiceId);
             System.out.println("[OrderService] ✅ Inserted invoice: " + invoiceId);
 
@@ -123,7 +139,7 @@ public class OrderService {
             if (order.getDeliveryInfo() != null) {
                 customerEmail = order.getDeliveryInfo().getEmail();
             }
-            
+
             if (customerEmail != null && !customerEmail.trim().isEmpty()) {
                 // Send email in background thread to avoid blocking
                 final String finalEmail = customerEmail;
@@ -157,7 +173,8 @@ public class OrderService {
     /**
      * Process order for QR payment (VietQR)
      */
-    public boolean processQRPaymentOrder(Invoice invoice, String transactionNo, String bankCode, String bankTransactionNo) {
+    public boolean processQRPaymentOrder(Invoice invoice, String transactionNo, String bankCode,
+            String bankTransactionNo) {
         return processCompletedOrder(invoice, "qr_code", transactionNo, bankCode, bankTransactionNo);
     }
 
@@ -168,4 +185,3 @@ public class OrderService {
         return processCompletedOrder(invoice, "credit_card", paypalOrderId, null, null);
     }
 }
-

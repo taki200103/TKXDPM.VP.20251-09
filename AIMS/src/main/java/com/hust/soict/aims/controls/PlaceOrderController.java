@@ -1,16 +1,22 @@
 package com.hust.soict.aims.controls;
 
 import com.hust.soict.aims.entities.*;
+import com.hust.soict.aims.dao.ProductDAO;
+import com.hust.soict.aims.dao.impl.ProductDAOImpl;
 
 import java.util.List;
 import java.util.UUID;
 
 public class PlaceOrderController {
     private Order currentOrder;
-
     private List<CartItem> orderItems;
     private double subtotal;
     private double totalWeight;
+    private ProductDAO productDAO;
+
+    public PlaceOrderController() {
+        this.productDAO = new ProductDAOImpl();
+    }
 
     /**
      * Result class for operations that can fail
@@ -32,7 +38,8 @@ public class PlaceOrderController {
      * @param cart CartController containing items to order
      * @return true if order created successfully, false if cart is empty
      */
-    private boolean setOrder(CartController cart) {
+    private boolean setOrder() {
+        CartController cart = CartController.getInstance();
         if (cart == null || cart.isEmpty()) {
             return false;
         }
@@ -64,7 +71,7 @@ public class PlaceOrderController {
 
         StringBuilder insufficient = new StringBuilder();
         for (CartItem item : orderItems) {
-            int stock = Database.getStock(item.getProduct().getId());
+            int stock = productDAO.getStock(item.getProduct().getId());
             if (stock < item.getQuantity()) {
                 insufficient.append(String.format("%s (available: %d, needed: %d)\n",
                         item.getProduct().getTitle(), stock, item.getQuantity()));
@@ -180,10 +187,10 @@ public class PlaceOrderController {
             return stockCheck;
         }
 
-        // Reduce stock for all items
+        // Reduce stock for all items using DAO
         try {
             for (CartItem item : orderItems) {
-                Database.reduceStock(item.getProduct().getId(), item.getQuantity());
+                productDAO.reduceStock(item.getProduct().getId(), item.getQuantity());
             }
 
             PlaceOrderResult result = new PlaceOrderResult(true, "Order completed successfully");
@@ -208,9 +215,9 @@ public class PlaceOrderController {
      * @param deliveryInfo Delivery information
      * @return PlaceOrderResult with invoice if successful
      */
-    public PlaceOrderResult placeOrder(CartController cart, DeliveryInfo deliveryInfo) {
+    public PlaceOrderResult placeOrder(DeliveryInfo deliveryInfo) {
         // Step 1: Set order from cart
-        if (!setOrder(cart)) {
+        if (!setOrder()) {
             return new PlaceOrderResult(false, "Cart is empty");
         }
 

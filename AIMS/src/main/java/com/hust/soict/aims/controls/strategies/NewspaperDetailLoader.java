@@ -3,11 +3,10 @@ package com.hust.soict.aims.controls.strategies;
 import com.hust.soict.aims.entities.Newspaper;
 import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.boundaries.ProductDetailScreen;
+import com.hust.soict.aims.dao.NewspaperDAO;
+import com.hust.soict.aims.dao.impl.NewspaperDAOImpl;
 import javax.swing.JPanel;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
 /**
  * Strategy Pattern - Concrete Strategy for Newspaper products
@@ -19,6 +18,12 @@ import java.sql.SQLException;
  */
 public class NewspaperDetailLoader implements ProductDetailLoader {
     
+    private NewspaperDAO newspaperDAO;
+    
+    public NewspaperDetailLoader() {
+        this.newspaperDAO = new NewspaperDAOImpl();
+    }
+    
     @Override
     public Product loadDetails(Connection conn, Product product) {
         if (!(product instanceof Newspaper)) {
@@ -28,29 +33,8 @@ public class NewspaperDetailLoader implements ProductDetailLoader {
         Newspaper newspaper = (Newspaper) product;
         long mediaId = newspaper.getId();
         
-        // Strategy Pattern: Load Newspaper-specific details by joining Newspaper table with Media
-        String sql = "SELECT editor_in_chief, publisher, publish_date, issue_number, " +
-                     "publication_frequency, issn, language, sections " +
-                     "FROM Newspaper WHERE media_id = ?";
-        
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, mediaId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    newspaper.setEditorInChief(rs.getString("editor_in_chief"));
-                    newspaper.setPublisher(rs.getString("publisher"));
-                    newspaper.setPublicationDate(rs.getString("publish_date"));
-                    newspaper.setIssueNumber(rs.getString("issue_number"));
-                    newspaper.setPublicationFrequency(rs.getString("publication_frequency"));
-                    newspaper.setIssn(rs.getString("issn"));
-                    newspaper.setLanguage(rs.getString("language"));
-                    newspaper.setSections(rs.getString("sections"));
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Error loading Newspaper details: " + e.getMessage());
-            e.printStackTrace();
-        }
+        // Strategy Pattern: Load Newspaper-specific details using DAO
+        newspaperDAO.loadNewspaperDetails(conn, newspaper, mediaId);
         
         return newspaper;
     }
