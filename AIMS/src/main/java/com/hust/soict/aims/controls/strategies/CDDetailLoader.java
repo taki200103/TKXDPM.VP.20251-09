@@ -5,6 +5,10 @@ import com.hust.soict.aims.entities.Product;
 import com.hust.soict.aims.entities.Track;
 import com.hust.soict.aims.boundaries.ProductDetailScreen;
 import com.hust.soict.aims.controls.Database;
+import com.hust.soict.aims.dao.CDDAO;
+import com.hust.soict.aims.dao.TrackDAO;
+import com.hust.soict.aims.dao.impl.CDDAOImpl;
+import com.hust.soict.aims.dao.impl.TrackDAOImpl;
 import javax.swing.JPanel;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -13,9 +17,6 @@ import javax.swing.BorderFactory;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import static com.hust.soict.aims.utils.UIConstant.*;
@@ -31,6 +32,14 @@ import static com.hust.soict.aims.utils.UIConstant.*;
  */
 public class CDDetailLoader implements ProductDetailLoader {
     
+    private CDDAO cdDAO;
+    private TrackDAO trackDAO;
+    
+    public CDDetailLoader() {
+        this.cdDAO = new CDDAOImpl();
+        this.trackDAO = new TrackDAOImpl();
+    }
+    
     @Override
     public Product loadDetails(Connection conn, Product product) {
         if (!(product instanceof CD)) {
@@ -40,28 +49,11 @@ public class CDDetailLoader implements ProductDetailLoader {
         CD cd = (CD) product;
         long mediaId = cd.getId();
         
-        // Strategy Pattern: Load CD-specific details by joining CD table with Media
-        String sql = "SELECT artist, record_label, music_type, release_date, genre " +
-                     "FROM CD WHERE media_id = ?";
+        // Strategy Pattern: Load CD-specific details using DAO
+        cdDAO.loadCDDetails(conn, cd, mediaId);
         
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, mediaId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    cd.setArtist(rs.getString("artist"));
-                    cd.setRecordLabel(rs.getString("record_label"));
-                    cd.setAlbum(rs.getString("music_type")); // album maps to music_type in DB
-                    cd.setReleaseDate(rs.getString("release_date"));
-                    cd.setGenre(rs.getString("genre"));
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Error loading CD details: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        // Strategy Pattern: Load Track information by joining Track table with CD
-        List<Track> tracks = loadTracks(conn, mediaId);
+        // Strategy Pattern: Load Track information using DAO
+        List<Track> tracks = trackDAO.loadTracks(mediaId);
         if (tracks != null && !tracks.isEmpty()) {
             // Convert Track objects to String list for backward compatibility
             List<String> trackList = new ArrayList<>();
@@ -78,37 +70,6 @@ public class CDDetailLoader implements ProductDetailLoader {
         }
         
         return cd;
-    }
-    
-    /**
-     * Load tracks from Track table for a CD
-     * Strategy Pattern: This method performs a JOIN with Track table
-     */
-    private List<Track> loadTracks(Connection conn, long mediaId) {
-        List<Track> tracks = new ArrayList<>();
-        String sql = "SELECT track_id, title, length, track_number " +
-                     "FROM Track WHERE media_id = ? ORDER BY track_number ASC";
-        
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, mediaId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Track track = new Track();
-                    track.setTrackId(rs.getLong("track_id"));
-                    track.setMediaId(mediaId);
-                    track.setTitle(rs.getString("title"));
-                    track.setLength(rs.getObject("length") != null ? rs.getInt("length") : null);
-                    track.setTrackNumber(rs.getObject("track_number") != null ? 
-                                        rs.getInt("track_number") : null);
-                    tracks.add(track);
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Error loading tracks: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        return tracks;
     }
     
     @Override
@@ -135,8 +96,8 @@ public class CDDetailLoader implements ProductDetailLoader {
         detailPanel.add(tracksLabel);
         detailPanel.add(Box.createVerticalStrut(SPACING_XSMALL));
         
-        // Load tracks from database to display full information
-        List<Track> tracks = Database.loadTracks(cd.getId());
+        // Load tracks from database to display full information using DAO
+        List<Track> tracks = trackDAO.loadTracks(cd.getId());
         if (tracks != null && !tracks.isEmpty()) {
             // Create a panel for track list with better formatting
             JPanel trackListPanel = new JPanel();

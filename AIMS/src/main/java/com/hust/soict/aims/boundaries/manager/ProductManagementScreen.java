@@ -193,10 +193,10 @@ public class ProductManagementScreen extends BaseScreenHandler {
         
         if (!hasFilters) {
             // Load all products (including deactivated) for management
-            int total = Database.countAllProductsForManagement();
+            int total = productController.countAllProductsForManagement();
             int pageSize = productController.getPageSize();
             for (int i = 0; i < total; i += pageSize) {
-                List<Product> pageProducts = Database.getAllProductsForManagement(i, pageSize);
+                List<Product> pageProducts = productController.getAllProductsForManagement(i, pageSize);
                 for (Product product : pageProducts) {
                     addProductToTable(product);
                 }
@@ -206,7 +206,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
             int pageIndex = 0;
             int pageSize = productController.getPageSize();
             do {
-                products = Database.searchProductsWithFiltersForManagement(
+                products = productController.searchProductsWithFiltersForManagement(
                     currentSearchTerm.isEmpty() ? null : currentSearchTerm,
                     currentCategory,
                     null, // minPrice
@@ -245,7 +245,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
                 product.getTitle(),
                 df.format((long) product.getCurrentPrice()),
                 String.format("%.2f", product.getWeight()),
-                Database.getStock(product.getId()),
+                productController.getStock(product.getId()),
                 statusText,
                 actionPanel
         };
@@ -389,7 +389,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
     }
 
     private void showEditProductDialog(long productId) {
-        Product product = Database.getProductById(productId);
+        Product product = productController.getProductById(productId);
         if (product != null) {
             if (managerMainScreen != null) {
                 managerMainScreen.showProductForm(product);
@@ -402,13 +402,13 @@ public class ProductManagementScreen extends BaseScreenHandler {
     }
 
     private void deleteProduct(long productId) {
-        Product product = Database.getProductById(productId);
+        Product product = productController.getProductById(productId);
         if (product == null) {
             return;
         }
         
         String productTitle = product.getTitle();
-        int stock = Database.getStock(productId);
+        int stock = productController.getStock(productId);
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "Are you sure you want to delete:\n" + productTitle + "?",
@@ -419,7 +419,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
         if (confirm == JOptionPane.YES_OPTION) {
             if (stock > 0) {
                 // Stock > 0: only deactivate
-                if (Database.deleteProduct(productId)) {
+                if (productController.deleteProduct(productId)) {
                     JOptionPane.showMessageDialog(this,
                             "Product cannot be deleted because stock > 0.\nStatus changed to 'Deactivated'.",
                             "Product Deactivated",
@@ -433,7 +433,7 @@ public class ProductManagementScreen extends BaseScreenHandler {
                 }
             } else {
                 // Stock = 0: delete
-                if (Database.deleteProduct(productId)) {
+                if (productController.deleteProduct(productId)) {
                     JOptionPane.showMessageDialog(this,
                             "Product deleted successfully",
                             "Success",

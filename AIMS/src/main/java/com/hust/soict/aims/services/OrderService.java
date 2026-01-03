@@ -2,6 +2,8 @@ package com.hust.soict.aims.services;
 
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.controls.Database;
+import com.hust.soict.aims.dao.*;
+import com.hust.soict.aims.dao.impl.*;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -15,9 +17,21 @@ import java.util.UUID;
  */
 public class OrderService {
     private EmailService emailService;
+    private OrderDAO orderDAO;
+    private DeliveryInfoDAO deliveryInfoDAO;
+    private OrderMediaDAO orderMediaDAO;
+    private PaymentTransactionDAO paymentTransactionDAO;
+    private InvoiceDAO invoiceDAO;
+    private ProductDAO productDAO;
 
     public OrderService() {
         this.emailService = EmailService.getInstance();
+        this.orderDAO = new OrderDAOImpl();
+        this.deliveryInfoDAO = new DeliveryInfoDAOImpl();
+        this.orderMediaDAO = new OrderMediaDAOImpl();
+        this.paymentTransactionDAO = new PaymentTransactionDAOImpl();
+        this.invoiceDAO = new InvoiceDAOImpl();
+        this.productDAO = new ProductDAOImpl();
     }
 
     /**
@@ -59,19 +73,19 @@ public class OrderService {
             // Note: SQLite doesn't support explicit transactions well, but we'll handle
             // errors
 
-            // 1. Insert Order
-            long orderId = Database.insertOrder(order);
+            // 1. Insert Order using DAO
+            long orderId = orderDAO.insertOrder(order);
             order.setOrderId(orderId);
             System.out.println("[OrderService] ✅ Inserted order: " + orderId);
 
-            // 2. Insert DeliveryInfo
+            // 2. Insert DeliveryInfo using DAO
             if (order.getDeliveryInfo() != null) {
                 order.getDeliveryInfo().setOrderId(orderId);
-                Database.insertDeliveryInfo(order.getDeliveryInfo());
+                deliveryInfoDAO.insertDeliveryInfo(order.getDeliveryInfo());
                 System.out.println("[OrderService] ✅ Inserted delivery info for order: " + orderId);
             }
 
-            // 3. Insert OrderMedia and reduce stock
+            // 3. Insert OrderMedia and reduce stock using DAO
             List<OrderMedia> orderMediaList = new ArrayList<>();
             for (CartItem item : items) {
                 // Create OrderMedia entry
@@ -82,8 +96,8 @@ public class OrderService {
                 orderMedia.setPrice(item.getProduct().getCurrentPrice());
                 orderMediaList.add(orderMedia);
 
-                // Reduce stock
-                boolean stockReduced = Database.reduceStock(item.getProduct().getId(), item.getQuantity());
+                // Reduce stock using ProductDAO
+                boolean stockReduced = productDAO.reduceStock(item.getProduct().getId(), item.getQuantity());
                 if (!stockReduced) {
                     System.err.println(
                             "[OrderService] ⚠️ Failed to reduce stock for product: " + item.getProduct().getId());
@@ -94,11 +108,11 @@ public class OrderService {
                 }
             }
 
-            // Insert all OrderMedia items in batch
-            Database.insertOrderMediaBatch(orderMediaList);
+            // Insert all OrderMedia items in batch using DAO
+            orderMediaDAO.insertOrderMediaBatch(orderMediaList);
             System.out.println("[OrderService] ✅ Inserted " + orderMediaList.size() + " order media items");
 
-            // 4. Insert PaymentTransaction
+            // 4. Insert PaymentTransaction using DAO
             PaymentTransaction paymentTransaction = new PaymentTransaction();
             paymentTransaction.setAmount(invoice.getTotalAmount());
             paymentTransaction.setMethodType(paymentMethod);
@@ -109,14 +123,14 @@ public class OrderService {
             paymentTransaction.setBankTransactionNo(bankTransactionNo);
             paymentTransaction.setCardType(paymentMethod.equals("credit_card") ? "PayPal" : null);
 
-            long paymentTransactionId = Database.insertPaymentTransaction(paymentTransaction);
+            long paymentTransactionId = paymentTransactionDAO.insertPaymentTransaction(paymentTransaction);
             paymentTransaction.setPaymentTransactionId(paymentTransactionId);
             System.out.println("[OrderService] ✅ Inserted payment transaction: " + paymentTransactionId);
 
-            // 5. Insert Invoice
+            // 5. Insert Invoice using DAO
             invoice.setOrderId(orderId);
             invoice.setPaymentTransactionId(paymentTransactionId);
-            long invoiceId = Database.insertInvoice(invoice);
+            long invoiceId = invoiceDAO.insertInvoice(invoice);
             invoice.setInvoiceId(invoiceId);
             System.out.println("[OrderService] ✅ Inserted invoice: " + invoiceId);
 

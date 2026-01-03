@@ -5,7 +5,9 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
-import com.hust.soict.aims.controls.Database;
+import com.hust.soict.aims.controls.ProductController;
+import com.hust.soict.aims.dao.TrackDAO;
+import com.hust.soict.aims.dao.impl.TrackDAOImpl;
 import com.hust.soict.aims.entities.*;
 import com.hust.soict.aims.entities.enums.*;
 import com.hust.soict.aims.entities.Track;
@@ -50,11 +52,18 @@ public class ProductFormScreen extends BaseScreenHandler {
 
     // Scroll pane reference for resetting scroll position
     private JScrollPane mainScrollPane;
+    
+    // DAO dependencies
+    private ProductController productController;
+    private TrackDAO trackDAO;
 
     public ProductFormScreen(BaseScreenHandler parent, Product product) {
         super(product == null ? "Add Product" : "Edit Product", parent, false);
         this.product = product;
         this.parentScreen = parent;
+        // Initialize DAO dependencies
+        this.productController = new ProductController();
+        this.trackDAO = new TrackDAOImpl();
         // Store reference to ManagerMainScreen if parent is ManagerMainScreen
         if (parent instanceof ManagerMainScreen) {
             this.managerMainScreen = (ManagerMainScreen) parent;
@@ -726,11 +735,11 @@ public class ProductFormScreen extends BaseScreenHandler {
 
             if (product == null) {
                 // Add new product
-                long newId = Database.addProduct(newProduct);
+                long newId = productController.addProduct(newProduct);
                 if (newId > 0) {
                     // Save tracks for CD
                     if (tracksToSave != null && !tracksToSave.isEmpty()) {
-                        Database.saveTracks(newId, tracksToSave);
+                        trackDAO.saveTracks(newId, tracksToSave);
                     }
 
                     // Save image if one was selected
@@ -756,10 +765,10 @@ public class ProductFormScreen extends BaseScreenHandler {
             } else {
                 // Update existing product
                 newProduct.setId(product.getId());
-                if (Database.updateProduct(newProduct)) {
+                if (productController.updateProduct(newProduct)) {
                     // Save tracks for CD
                     if (tracksToSave != null) {
-                        Database.saveTracks(product.getId(), tracksToSave);
+                        trackDAO.saveTracks(product.getId(), tracksToSave);
                     }
 
                     // Save image if one was selected
@@ -1049,7 +1058,7 @@ public class ProductFormScreen extends BaseScreenHandler {
         CD cd = (CD) product;
 
         // Try to load tracks from database first
-        List<Track> tracks = Database.loadTracks(cd.getId());
+        List<Track> tracks = trackDAO.loadTracks(cd.getId());
 
         // If no tracks from database, try from trackList (for backward compatibility)
         if (tracks == null || tracks.isEmpty()) {
