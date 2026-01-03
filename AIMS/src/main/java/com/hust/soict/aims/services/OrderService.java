@@ -18,7 +18,7 @@ public class OrderService {
     private EmailService emailService;
 
     public OrderService() {
-        this.emailService = new EmailService();
+        this.emailService = EmailService.getInstance();
     }
 
     /**
@@ -32,16 +32,16 @@ public class OrderService {
      * 6. Inserts invoice
      * 7. Sends confirmation email
      * 
-     * @param invoice The invoice containing order and payment information
-     * @param paymentMethod Payment method used (e.g., "qr_code", "credit_card")
-     * @param transactionNo Transaction number from payment provider
-     * @param bankCode Bank code (for QR payments)
+     * @param invoice           The invoice containing order and payment information
+     * @param paymentMethod     Payment method used (e.g., "qr_code", "credit_card")
+     * @param transactionNo     Transaction number from payment provider
+     * @param bankCode          Bank code (for QR payments)
      * @param bankTransactionNo Bank transaction number (for QR payments)
      * @return true if successful, false otherwise
      */
-    public boolean processCompletedOrder(Invoice invoice, String paymentMethod, 
-                                         String transactionNo, String bankCode, 
-                                         String bankTransactionNo) {
+    public boolean processCompletedOrder(Invoice invoice, String paymentMethod,
+            String transactionNo, String bankCode,
+            String bankTransactionNo) {
         if (invoice == null || invoice.getOrder() == null) {
             System.err.println("[OrderService] Invalid invoice or order");
             return false;
@@ -49,7 +49,7 @@ public class OrderService {
 
         Order order = invoice.getOrder();
         List<CartItem> items = order.getItems();
-        
+
         if (items == null || items.isEmpty()) {
             System.err.println("[OrderService] Order has no items");
             return false;
@@ -57,8 +57,9 @@ public class OrderService {
 
         try {
             // Start transaction - all operations must succeed
-            // Note: SQLite doesn't support explicit transactions well, but we'll handle errors
-            
+            // Note: SQLite doesn't support explicit transactions well, but we'll handle
+            // errors
+
             // 1. Insert Order
             long orderId = Database.insertOrder(order);
             order.setOrderId(orderId);
@@ -85,10 +86,12 @@ public class OrderService {
                 // Reduce stock
                 boolean stockReduced = Database.reduceStock(item.getProduct().getId(), item.getQuantity());
                 if (!stockReduced) {
-                    System.err.println("[OrderService] ⚠️ Failed to reduce stock for product: " + item.getProduct().getId());
+                    System.err.println(
+                            "[OrderService] ⚠️ Failed to reduce stock for product: " + item.getProduct().getId());
                     // Continue anyway - stock might have been reduced elsewhere
                 } else {
-                    System.out.println("[OrderService] ✅ Reduced stock for product: " + item.getProduct().getId() + " by " + item.getQuantity());
+                    System.out.println("[OrderService] ✅ Reduced stock for product: " + item.getProduct().getId()
+                            + " by " + item.getQuantity());
                 }
             }
 
@@ -123,7 +126,7 @@ public class OrderService {
             if (order.getDeliveryInfo() != null) {
                 customerEmail = order.getDeliveryInfo().getEmail();
             }
-            
+
             if (customerEmail != null && !customerEmail.trim().isEmpty()) {
                 // Send email in background thread to avoid blocking
                 final String finalEmail = customerEmail;
@@ -157,7 +160,8 @@ public class OrderService {
     /**
      * Process order for QR payment (VietQR)
      */
-    public boolean processQRPaymentOrder(Invoice invoice, String transactionNo, String bankCode, String bankTransactionNo) {
+    public boolean processQRPaymentOrder(Invoice invoice, String transactionNo, String bankCode,
+            String bankTransactionNo) {
         return processCompletedOrder(invoice, "qr_code", transactionNo, bankCode, bankTransactionNo);
     }
 
@@ -168,4 +172,3 @@ public class OrderService {
         return processCompletedOrder(invoice, "credit_card", paypalOrderId, null, null);
     }
 }
-

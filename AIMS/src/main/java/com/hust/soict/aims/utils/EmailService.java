@@ -20,16 +20,28 @@ import java.util.TimeZone;
  * Service for sending email notifications
  */
 public class EmailService {
+    private static volatile EmailService instance;
     private String senderEmail;
     private String senderPassword;
     private String smtpHost = "smtp.gmail.com";
     private int smtpPort = 587;
 
-    public EmailService() {
+    public static EmailService getInstance() {
+        if (instance == null) {
+            synchronized (EmailService.class) {
+                if (instance == null) {
+                    instance = new EmailService();
+                }
+            }
+        }
+        return instance;
+    }
+
+    private EmailService() {
         // Load configuration from application.properties or environment
         this.senderEmail = ConfigLoader.getProperty("email.sender", "");
         this.senderPassword = ConfigLoader.getProperty("email.password", "");
-        
+
         String host = ConfigLoader.getProperty("email.smtp.host", smtpHost);
         if (!host.isEmpty()) {
             this.smtpHost = host;
@@ -52,7 +64,8 @@ public class EmailService {
         }
 
         if (senderEmail == null || senderEmail.isEmpty() || senderPassword == null || senderPassword.isEmpty()) {
-            System.err.println("[EmailService] Email configuration not set. Please configure email.sender and email.password in application.properties");
+            System.err.println(
+                    "[EmailService] Email configuration not set. Please configure email.sender and email.password in application.properties");
             return false;
         }
 
@@ -92,7 +105,8 @@ public class EmailService {
         html.append(".container { max-width: 600px; margin: 0 auto; padding: 20px; }");
         html.append(".header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }");
         html.append(".content { padding: 20px; background-color: #f9f9f9; }");
-        html.append(".order-info { background-color: white; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }");
+        html.append(
+                ".order-info { background-color: white; padding: 15px; margin: 10px 0; border-left: 4px solid #4CAF50; }");
         html.append(".item { padding: 10px; border-bottom: 1px solid #ddd; }");
         html.append(".total { font-size: 18px; font-weight: bold; color: #4CAF50; margin-top: 15px; }");
         html.append("</style></head><body>");
@@ -101,7 +115,7 @@ public class EmailService {
         html.append("<div class='content'>");
         html.append("<p>Dear ").append(escapeHtml(order.getDeliveryInfo().getRecipientName())).append(",</p>");
         html.append("<p>Thank you for your purchase! Your payment has been successfully processed.</p>");
-        
+
         html.append("<div class='order-info'>");
         html.append("<h3>Order Details</h3>");
         html.append("<p><strong>Order ID:</strong> #").append(order.getOrderId()).append("</p>");
@@ -138,9 +152,12 @@ public class EmailService {
 
         html.append("<div class='order-info'>");
         html.append("<h3>Delivery Information</h3>");
-        html.append("<p><strong>Recipient:</strong> ").append(escapeHtml(order.getDeliveryInfo().getRecipientName())).append("</p>");
-        html.append("<p><strong>Phone:</strong> ").append(escapeHtml(order.getDeliveryInfo().getPhoneNumber())).append("</p>");
-        html.append("<p><strong>Address:</strong> ").append(escapeHtml(order.getDeliveryInfo().getDeliveryAddress())).append("</p>");
+        html.append("<p><strong>Recipient:</strong> ").append(escapeHtml(order.getDeliveryInfo().getRecipientName()))
+                .append("</p>");
+        html.append("<p><strong>Phone:</strong> ").append(escapeHtml(order.getDeliveryInfo().getPhoneNumber()))
+                .append("</p>");
+        html.append("<p><strong>Address:</strong> ").append(escapeHtml(order.getDeliveryInfo().getDeliveryAddress()))
+                .append("</p>");
         html.append("<p><strong>City:</strong> ").append(escapeHtml(order.getDeliveryInfo().getCity())).append("</p>");
         html.append("</div>");
 
@@ -191,12 +208,12 @@ public class EmailService {
      * Escape HTML special characters
      */
     private String escapeHtml(String text) {
-        if (text == null) return "";
+        if (text == null)
+            return "";
         return text.replace("&", "&amp;")
-                   .replace("<", "&lt;")
-                   .replace(">", "&gt;")
-                   .replace("\"", "&quot;")
-                   .replace("'", "&#39;");
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }
-
