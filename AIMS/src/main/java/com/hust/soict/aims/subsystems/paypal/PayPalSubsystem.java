@@ -1,45 +1,40 @@
 package com.hust.soict.aims.subsystems.paypal;
 
+import com.hust.soict.aims.entities.Invoice;
 import com.hust.soict.aims.exceptions.PaymentException;
+import com.hust.soict.aims.services.PaymentContextService;
 import com.hust.soict.aims.subsystems.IQRCodePayment;
 
 public class PayPalSubsystem implements IQRCodePayment {
 
-    private PayPalSubsystemController ctrl;
+    private final PayPalSubsystemController ctrl;
+    private final PaymentContextService paymentContextService = PaymentContextService.getInstance();
 
     public PayPalSubsystem() {
-        //
-        // [SOLID VIOLATION]: DIP (Dependency Inversion Principle) - Nguyên lý Đảo ngược
-        // sự phụ thuộc
-        // LÝ DO: Class này (High-level module trong Subsystem) đang phụ thuộc trực tiếp
-        // vào
-        //
-        //
-        //
-        // HẬU QUẢ: Code bị dính chặt (Tight Coupling). Khó mở rộng, khó viết Unit Test
-        // (không thể Mock controller).
-        // GIẢI PHÁP: Nên sử dụng Dependency Injection (tiêm Controller vào qua Constru
-        // tor).
         this.ctrl = new PayPalSubsystemController();
-        //
+    }
+
+    // ✅ Flow đúng: user/invoice tạo PayPal order, lưu mapping, trả approve URL cho user
+    public String generatePayUrlForInvoice(Invoice invoice) throws PaymentException {
+        try {
+            int amountVnd = (int) Math.round(invoice.getTotalAmount());
+
+            PayPalOrderResponse res = ctrl.createOrder(amountVnd);
+
+            // Lưu mapping để khi PayPal redirect về, ta biết invoice nào của user
+            paymentContextService.storePayPalOrder(res.getOrderId(), invoice);
+
+            return res.getApproveUrl();
+        } catch (Exception e) {
+            throw new PaymentException("Lỗi PayPal: " + e.getMessage(), e);
+        }
     }
 
     @Override
     public String generatePayUrl(int amount, String content) throws PaymentException {
-        try {
-            // Gọi Controller để lấy link thanh toán thật từ API
-            return ctrl.createOrder(amount);
-        } catch (Exception e) {
-            throw new PaymentException("Lỗi PayPal: " + e.getMessage());
-        }
+        throw new PaymentException("Không dùng generatePayUrl(amount, content) cho PayPal. Dùng generatePayUrlForInvoice(invoice).");
     }
 
-    //
-    // LÝ DO: Tương tự như VietQR, class này bị ép buộc phải implement phương thứ
-    // Mặc dù PayPal có hỗ trợ hoàn tiền, nhưng việc gộp chung 2 tính năng "Thanh
-    // oán" và "Hoàn tiền"
-    // vào chung 1 interface khiến cho các class con mất đi sự linh hoạt.
-    //
     @Override
     public String refund(int amount, String content) throws PaymentException {
         return "Yêu cầu hoàn tiền PayPal thành công (Demo)";

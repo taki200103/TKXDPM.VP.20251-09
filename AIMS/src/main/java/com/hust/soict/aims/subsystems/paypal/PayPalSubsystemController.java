@@ -44,16 +44,12 @@ public class PayPalSubsystemController {
     /**
      * Tạo đơn hàng trên PayPal (Create Order API)
      */
-    public String createOrder(int amount) throws Exception {
+    public PayPalOrderResponse createOrder(int amountVnd) throws Exception {
         String accessToken = getAccessToken();
 
-        // [CLEAN CODE]: Sử dụng tỷ giá từ Config thay vì hard-code số 24000
-        double amountUSD = amount / PayPalConfig.VND_TO_USD_EXCHANGE_RATE;
-
-        // Format số tiền (Luôn dùng dấu chấm thập phân chuẩn US)
+        double amountUSD = amountVnd / PayPalConfig.VND_TO_USD_EXCHANGE_RATE;
         String amountStr = String.format(Locale.US, "%.2f", amountUSD);
 
-        // Xây dựng JSON Body bằng thư viện GSON
         JsonObject amountJson = new JsonObject();
         amountJson.addProperty("currency_code", "USD");
         amountJson.addProperty("value", amountStr);
@@ -68,20 +64,16 @@ public class PayPalSubsystemController {
         orderRequest.addProperty("intent", "CAPTURE");
         orderRequest.add("purchase_units", purchaseUnits);
 
-        // [CLEAN CODE]: Sử dụng URL từ Config
         JsonObject applicationContext = new JsonObject();
         applicationContext.addProperty("return_url", PayPalConfig.RETURN_URL);
         applicationContext.addProperty("cancel_url", PayPalConfig.CANCEL_URL);
-
         orderRequest.add("application_context", applicationContext);
-
-        String requestBody = orderRequest.toString();
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(PayPalConfig.API_BASE_URL + "/v2/checkout/orders"))
                 .header("Authorization", "Bearer " + accessToken)
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .POST(HttpRequest.BodyPublishers.ofString(orderRequest.toString()))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -91,17 +83,21 @@ public class PayPalSubsystemController {
         }
 
         JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+        String orderId = jsonResponse.get("id").getAsString();
 
-        // Lấy link approve để trả về cho người dùng
+        String approveUrl = null;
         var links = jsonResponse.getAsJsonArray("links");
         for (var link : links) {
             JsonObject linkObj = link.getAsJsonObject();
             if ("approve".equals(linkObj.get("rel").getAsString())) {
-                return linkObj.get("href").getAsString();
+                approveUrl = linkObj.get("href").getAsString();
+                break;
             }
         }
 
-        throw new Exception("No approve link found in PayPal response");
+        if (approveUrl == null) throw new Exception("No approve link found in PayPal response");
+
+        return new PayPalOrderResponse(orderId, approveUrl);
     }
 
     /**

@@ -44,7 +44,8 @@ public class PayOrderController {
                 return createVietQRPayment(amount, content);
 
             case PAYPAL:
-                return createPayPalPayment(amount);
+                return createPayPalPayment(invoice);
+
 
             default:
                 throw new PaymentException("Unsupported payment method: " + method);
@@ -72,10 +73,8 @@ public class PayOrderController {
     /**
      * Tạo thanh toán PayPal
      */
-    private PaymentResult createPayPalPayment(int amount)
-            throws PaymentException {
-
-        String payUrl = payPalSubsystem.generatePayUrl(amount, "AIMS_PAYPAL");
+    private PaymentResult createPayPalPayment(Invoice invoice) throws PaymentException {
+        String payUrl = payPalSubsystem.generatePayUrlForInvoice(invoice);
         return PaymentResult.paypal(payUrl);
     }
 
