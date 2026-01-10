@@ -29,16 +29,17 @@ public class PaymentScreen extends BaseScreenHandler {
     private final PaymentContextService paymentContextService;
 
     private PaymentMethod currentMethod = PaymentMethod.VIETQR;
-    private QRCode currentQRCode; // Store current QR code for payment processing
-    private String currentPayPalOrderId; // Store PayPal order ID when available
+    private QRCode currentQRCode;              // Store current QR code for payment processing
+    private String currentPayPalOrderId;       // Store PayPal order ID (token)
 
     // UI
     private JLabel qrLabel;
+    private Timer paypalPollTimer;
 
     private RoundedButton vietQRBtn;
     private RoundedButton paypalBtn;
     private RoundedButton regenerateBtn;
-    private RoundedButton paymentDoneBtn; // NEW
+    private RoundedButton paymentDoneBtn;
 
     private JLabel amountLabel;
     private JLabel bankLabel;
@@ -47,14 +48,68 @@ public class PaymentScreen extends BaseScreenHandler {
     private JTextArea qrLinkArea;
 
     public PaymentScreen(BaseScreenHandler parent,
-            Invoice invoice,
-            PlaceOrderController placeOrderController) {
+                         Invoice invoice,
+                         PlaceOrderController placeOrderController) {
         super("Payment", parent, false);
         this.invoice = invoice;
         this.payOrderController = new PayOrderController(placeOrderController);
         this.orderService = new OrderService();
         this.paymentContextService = PaymentContextService.getInstance();
         initializeScreen();
+    }
+
+    // ================= PAYPAL POLLING =================
+
+    private void startPayPalStatusPolling(String orderId) {
+        stopPayPalStatusPolling();
+
+        paypalPollTimer = new Timer(1500, e -> {
+            try {
+                String status = fetchPayPalStatus(orderId);
+
+                if ("COMPLETED".equalsIgnoreCase(status)) {
+                    stopPayPalStatusPolling();
+
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "PayPal payment confirmed!\nOrder is processed successfully.",
+                            "Payment Success",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+
+                    CartController.getInstance().clear();
+                    navigateHomeAndClearStack();
+
+                } else if ("FAILED".equalsIgnoreCase(status) || "CANCELLED".equalsIgnoreCase(status)) {
+                    stopPayPalStatusPolling();
+
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "PayPal payment was not completed (" + status + ").\nPlease try again.",
+                            "Payment",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                }
+            } catch (Exception ignore) {
+                // If server not ready / temporarily unreachable, ignore and keep polling
+            }
+        });
+
+        paypalPollTimer.start();
+    }
+
+    private String fetchPayPalStatus(String orderId) throws Exception {
+        URL url = new URL("http://localhost:8080/paypal-status?orderId=" + orderId);
+        try (var in = url.openStream()) {
+            return new String(in.readAllBytes()).trim();
+        }
+    }
+
+    private void stopPayPalStatusPolling() {
+        if (paypalPollTimer != null) {
+            paypalPollTimer.stop();
+            paypalPollTimer = null;
+        }
     }
 
     // ================= INIT =================
@@ -88,7 +143,7 @@ public class PaymentScreen extends BaseScreenHandler {
         regenerateBtn.setCursor(CURSOR_HAND);
         regenerateBtn.setPreferredSize(new Dimension(200, 40));
 
-        // NEW: Payment done button
+        // Payment done button (ONLY for VietQR demo)
         paymentDoneBtn = new RoundedButton("Payment Successful");
         paymentDoneBtn.setFont(FONT_BUTTON);
         paymentDoneBtn.setBackground(SUCCESS_COLOR);
@@ -161,9 +216,8 @@ public class PaymentScreen extends BaseScreenHandler {
 
         add(center, BorderLayout.CENTER);
 
-        // Footer buttons
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        footer.add(paymentDoneBtn); // NEW
+        footer.add(paymentDoneBtn);
         footer.add(regenerateBtn);
         add(footer, BorderLayout.SOUTH);
     }
@@ -172,13 +226,11 @@ public class PaymentScreen extends BaseScreenHandler {
 
     @Override
     protected void bindEvents() {
-
         vietQRBtn.addActionListener(e -> switchMethod(PaymentMethod.VIETQR));
         paypalBtn.addActionListener(e -> switchMethod(PaymentMethod.PAYPAL));
-
         regenerateBtn.addActionListener(e -> generatePayment());
 
-        // NEW: Payment done action
+        // Only used for VietQR demo
         paymentDoneBtn.addActionListener(e -> onPaymentSuccess());
     }
 
@@ -194,8 +246,21 @@ public class PaymentScreen extends BaseScreenHandler {
     private void switchMethod(PaymentMethod method) {
         currentMethod = method;
         updateMethodButtonStyle();
+        updatePaymentDoneButtonState();
         clearPaymentInformation();
         generatePayment();
+    }
+
+    private void updatePaymentDoneButtonState() {
+        if (currentMethod == PaymentMethod.PAYPAL) {
+            paymentDoneBtn.setEnabled(false);
+            paymentDoneBtn.setText("Pay on PayPal (auto confirm)");
+            paymentDoneBtn.setToolTipText("Complete payment in browser. System confirms automatically.");
+        } else {
+            paymentDoneBtn.setEnabled(true);
+            paymentDoneBtn.setText("Payment Successful");
+            paymentDoneBtn.setToolTipText("VietQR demo: click after transfer.");
+        }
     }
 
     private void clearPaymentInformation() {
@@ -220,7 +285,6 @@ public class PaymentScreen extends BaseScreenHandler {
     }
 
     private void generatePayment() {
-
         qrLabel.setText("Generating payment...");
 
         SwingWorker<PaymentResult, Void> worker = new SwingWorker<>() {
@@ -234,6 +298,7 @@ public class PaymentScreen extends BaseScreenHandler {
                 try {
                     handlePaymentResult(get());
                 } catch (Exception e) {
+                    e.printStackTrace();
                     qrLabel.setText("Payment failed");
                 }
             }
@@ -244,19 +309,48 @@ public class PaymentScreen extends BaseScreenHandler {
     private void handlePaymentResult(PaymentResult result) {
         if (result.getMethod() == PaymentMethod.VIETQR) {
             displayVietQR(result.getQrCode());
-        } else {
-            // For PayPal, store invoice in context for later processing
-            // Use order ID as key (will be updated when we get PayPal order ID)
-            String tempKey = "TEMP_" + invoice.getOrder().getId();
-            paymentContextService.storePayPalOrder(tempKey, invoice);
-            redirectToPayPal(result.getPayUrl());
+            return;
         }
+
+        // PAYPAL
+        String payUrl = result.getPayUrl();
+        this.currentPayPalOrderId = extractPayPalOrderIdFromUrl(payUrl);
+
+        if (this.currentPayPalOrderId != null) {
+            // Store mapping using REAL orderId (token) so callback can find invoice
+            paymentContextService.storePayPalOrder(this.currentPayPalOrderId, invoice);
+        } else {
+            System.err.println("[PaymentScreen] Cannot extract PayPal orderId from approve URL: " + payUrl);
+        }
+
+        displayPayPalInfo(payUrl);
+        redirectToPayPal(payUrl);
+
+        // Start polling so screen auto closes when callback success
+        if (this.currentPayPalOrderId != null) {
+            startPayPalStatusPolling(this.currentPayPalOrderId);
+        }
+    }
+
+    private String extractPayPalOrderIdFromUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            String query = uri.getQuery(); // token=XXXX...
+            if (query == null) return null;
+
+            for (String part : query.split("&")) {
+                String[] kv = part.split("=", 2);
+                if (kv.length == 2 && "token".equalsIgnoreCase(kv[0])) {
+                    return kv[1];
+                }
+            }
+        } catch (Exception ignore) {}
+        return null;
     }
 
     // ================= DISPLAY =================
 
     private void displayVietQR(QRCode qr) {
-        // Store QR code for later use in payment processing
         this.currentQRCode = qr;
 
         try {
@@ -275,13 +369,28 @@ public class PaymentScreen extends BaseScreenHandler {
         qrLinkArea.setText(qr.getQrLink());
     }
 
-    private void redirectToPayPal(String url) {
-        qrLabel.setText("<html><center><h3>Redirecting to PayPal...</h3></center></html>");
+    private void displayPayPalInfo(String url) {
+        qrLabel.setText("<html><center><h3>Redirecting to PayPal...</h3>" +
+                "<div>Complete payment in browser.<br/>System will confirm automatically.</div></center></html>");
         amountLabel.setText(String.format("Amount: %.0f VND", invoice.getTotalAmount()));
-        qrLinkArea.setText(url);
 
+        bankLabel.setText("");
+        bankCodeLabel.setText("");
+        accountLabel.setText("");
+
+        qrLinkArea.setText(url);
+    }
+
+    private void redirectToPayPal(String url) {
         try {
-            Desktop.getDesktop().browse(new URI(url));
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().browse(new URI(url));
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Desktop browse not supported.\nOpen this URL manually:\n" + url,
+                        "PayPal",
+                        JOptionPane.WARNING_MESSAGE);
+            }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                     "Cannot open browser.\n" + url,
@@ -293,27 +402,24 @@ public class PaymentScreen extends BaseScreenHandler {
     // ================= SUCCESS FLOW =================
 
     private void onPaymentSuccess() {
-        // Process order: insert into database, reduce stock, send email
-        boolean success = false;
-
-        if (currentMethod == PaymentMethod.VIETQR) {
-            // For QR payment
-            String transactionNo = "QR_" + System.currentTimeMillis();
-            String bankCode = currentQRCode != null ? currentQRCode.getBankCode() : null;
-            String bankTransactionNo = transactionNo;
-            success = orderService.processQRPaymentOrder(invoice, transactionNo, bankCode, bankTransactionNo);
-        } else if (currentMethod == PaymentMethod.PAYPAL) {
-            // For PayPal payment - use stored order ID if available, otherwise use
-            // placeholder
-            String paypalOrderId = currentPayPalOrderId != null ? currentPayPalOrderId
-                    : "PAYPAL_" + System.currentTimeMillis();
-            success = orderService.processPayPalPaymentOrder(invoice, paypalOrderId);
-
-            // If we have the actual PayPal order ID, store the mapping
-            if (currentPayPalOrderId != null) {
-                paymentContextService.storePayPalOrder(currentPayPalOrderId, invoice);
-            }
+        // For PAYPAL, never allow manual success.
+        if (currentMethod == PaymentMethod.PAYPAL) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Please complete payment on PayPal in your browser.\nThe system will confirm automatically after you return.",
+                    "PayPal",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
         }
+
+        // VIETQR demo success
+        boolean success;
+        String transactionNo = "QR_" + System.currentTimeMillis();
+        String bankCode = currentQRCode != null ? currentQRCode.getBankCode() : null;
+        String bankTransactionNo = transactionNo;
+
+        success = orderService.processQRPaymentOrder(invoice, transactionNo, bankCode, bankTransactionNo);
 
         if (success) {
             JOptionPane.showMessageDialog(
@@ -334,17 +440,15 @@ public class PaymentScreen extends BaseScreenHandler {
     }
 
     private void navigateHomeAndClearStack() {
+        // Stop polling if any
+        stopPayPalStatusPolling();
 
-        // Tìm Homepage (root screen)
         BaseScreenHandler root = this;
         while (root.getParentScreen() != null) {
             root = root.getParentScreen();
         }
 
-        // Clear backstack & navigate
         getNavigator().clearAndNavigateTo(root);
-
-        // Đóng PaymentScreen
         dispose();
     }
 }

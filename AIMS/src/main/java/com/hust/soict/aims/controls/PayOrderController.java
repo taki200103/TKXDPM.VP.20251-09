@@ -36,8 +36,10 @@ public class PayOrderController {
             throws PaymentException {
 
         Order order = invoice.getOrder();
-        int amount = (int) invoice.getTotal();
-        String content = "AIMS_ORDER_" + order.getId();
+
+        // Amount VNĐ (làm tròn)
+        int amount = (int) Math.round(invoice.getTotalAmount());
+        String content = "AIMS_ORDER_" + (order != null ? order.getOrderId() : "UNKNOWN");
 
         switch (method) {
             case VIETQR:
@@ -45,7 +47,6 @@ public class PayOrderController {
 
             case PAYPAL:
                 return createPayPalPayment(invoice);
-
 
             default:
                 throw new PaymentException("Unsupported payment method: " + method);
