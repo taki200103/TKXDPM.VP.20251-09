@@ -19,7 +19,6 @@ public class DatabaseInitializer {
             conn.setAutoCommit(false);
             try (Statement st = conn.createStatement()) {
                 createTables(st);
-                createLegacyTables(st, conn);
                 initializeDefaultData(conn);
                 conn.commit();
             } catch (SQLException e) {
@@ -213,23 +212,6 @@ public class DatabaseInitializer {
     }
     
     /**
-     * Create legacy tables for backward compatibility
-     */
-    private static void createLegacyTables(Statement st, Connection conn) throws SQLException {
-        st.execute("CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, title TEXT, originalValue REAL, currentPrice REAL, weight REAL, dimension TEXT, description TEXT, extra TEXT)");
-        
-        if (!hasColumn(conn, "products", "stock")) {
-            st.execute("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 10");
-        }
-        if (!hasColumn(conn, "products", "barcode")) {
-            st.execute("ALTER TABLE products ADD COLUMN barcode TEXT");
-        }
-        if (!hasColumn(conn, "products", "imagePath")) {
-            st.execute("ALTER TABLE products ADD COLUMN imagePath TEXT");
-        }
-    }
-    
-    /**
      * Initialize default roles and users
      */
     private static void initializeDefaultData(Connection conn) throws SQLException {
@@ -270,18 +252,4 @@ public class DatabaseInitializer {
         }
     }
     
-    /**
-     * Check if a column exists in a table
-     */
-    private static boolean hasColumn(Connection conn, String table, String column) throws SQLException {
-        String q = "PRAGMA table_info(" + table + ")";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(q)) {
-            while (rs.next()) {
-                String name = rs.getString("name");
-                if (column.equalsIgnoreCase(name)) return true;
-            }
-        }
-        return false;
-    }
 }
-
