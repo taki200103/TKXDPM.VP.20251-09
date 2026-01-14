@@ -8,21 +8,21 @@ import java.sql.*;
 import java.util.*;
 
 /**
- * Database Legacy Methods
- * 
- * This class contains legacy static methods from the original Database class.
- * These methods are kept for backward compatibility.
- * 
- * New code should use DAO interfaces instead.
- * 
- * @deprecated Use DAO interfaces instead
+ * Các phương thức cơ sở dữ liệu dạng cũ (Legacy)
+ *
+ * Lớp này chứa các phương thức tĩnh được giữ lại từ lớp Database gốc.
+ * Các phương thức này được giữ lại để đảm bảo khả năng tương thích với mã nguồn cũ.
+ *
+ * Mã mới nên sử dụng các DAO interface thay thế.
+ *
+ * @deprecated Hãy dùng các DAO interface thay cho lớp này
  */
 @Deprecated
 public class DatabaseLegacy {
     private static final String URL = Database.URL;
     
     /**
-     * Functional interface for setting PreparedStatement parameters
+     * Functional interface dùng để gán tham số cho PreparedStatement
      */
     @FunctionalInterface
     private interface PreparedStatementSetter {
@@ -30,27 +30,18 @@ public class DatabaseLegacy {
     }
     
     // =======================
-    // Legacy Product Search Methods
+    // Các phương thức tìm kiếm sản phẩm (Legacy)
     // =======================
     
     public static List<Product> searchProducts(String searchTerm, int offset, int limit) {
-        // Try Media first
+        // Thử truy vấn bảng Media trước
         List<Product> results = searchMediaProducts(searchTerm, null, null, null, offset, limit);
-        if (!results.isEmpty()) {
-            return results;
-        }
-        
-        // Fallback to products
-        return queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE LOWER(title) LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
-                            stmt -> {
-                                stmt.setString(1, "%" + searchTerm.toLowerCase() + "%");
-                                stmt.setInt(2, limit);
-                                stmt.setInt(3, offset);
-                            });
+        // Không còn dùng bảng legacy products, chỉ trả về kết quả từ Media
+        return results;
     }
     
     public static int countSearchResults(String searchTerm) {
-        // Try Media first
+        // Thử đếm trong bảng Media trước
         String q = "SELECT COUNT(*) FROM Media WHERE status = 'active' AND LOWER(title) LIKE ?";
         try (Connection conn = DriverManager.getConnection(URL); 
              PreparedStatement ps = conn.prepareStatement(q)) {
@@ -63,72 +54,22 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Fallback to products
-        q = "SELECT COUNT(*) FROM products WHERE LOWER(title) LIKE ?";
-        try (Connection conn = DriverManager.getConnection(URL); 
-             PreparedStatement ps = conn.prepareStatement(q)) {
-            ps.setString(1, "%" + searchTerm.toLowerCase() + "%");
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Không còn dùng bảng legacy products, nếu Media không có thì trả về 0
         return 0;
     }
     
     public static List<Product> searchProductsWithFilters(String searchTerm, String category, 
                                                          Double minPrice, Double maxPrice, 
                                                          int offset, int limit) {
-        // Try Media first
+        // Thử truy vấn bảng Media trước
         List<Product> results = searchMediaProducts(searchTerm, category, minPrice, maxPrice, offset, limit);
-        if (!results.isEmpty() || hasMediaData()) {
-            return results;
-        }
-        
-        // Fallback to products
-        StringBuilder sql = new StringBuilder("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE 1=1");
-        List<Object> params = new ArrayList<>();
-        
-        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND LOWER(title) LIKE ?");
-            params.add("%" + searchTerm.toLowerCase() + "%");
-        }
-        
-        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("all")) {
-            sql.append(" AND LOWER(type) = ?");
-            params.add(category.toLowerCase());
-        }
-        
-        if (minPrice != null) {
-            sql.append(" AND currentPrice >= ?");
-            params.add(minPrice);
-        }
-        
-        if (maxPrice != null) {
-            sql.append(" AND currentPrice <= ?");
-            params.add(maxPrice);
-        }
-        
-        sql.append(" ORDER BY id DESC LIMIT ? OFFSET ?");
-        params.add(limit);
-        params.add(offset);
-        
-        return queryProducts(sql.toString(), stmt -> {
-            for (int i = 0; i < params.size(); i++) {
-                Object param = params.get(i);
-                if (param instanceof String) {
-                    stmt.setString(i + 1, (String) param);
-                } else if (param instanceof Double) {
-                    stmt.setDouble(i + 1, (Double) param);
-                } else if (param instanceof Integer) {
-                    stmt.setInt(i + 1, (Integer) param);
-                }
-            }
-        });
+        // Không còn dùng bảng legacy products, chỉ trả về kết quả từ Media
+        return results;
     }
     
     public static int countFilteredResults(String searchTerm, String category, 
                                           Double minPrice, Double maxPrice) {
-        // Try Media first
+        // Thử đếm trong bảng Media trước
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM Media WHERE status = 'active'");
         List<Object> params = new ArrayList<>();
         
@@ -170,44 +111,7 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Fallback to products
-        sql = new StringBuilder("SELECT COUNT(*) FROM products WHERE 1=1");
-        params.clear();
-        
-        if (searchTerm != null && !searchTerm.trim().isEmpty()) {
-            sql.append(" AND LOWER(title) LIKE ?");
-            params.add("%" + searchTerm.toLowerCase() + "%");
-        }
-        
-        if (category != null && !category.isEmpty() && !category.equalsIgnoreCase("all")) {
-            sql.append(" AND LOWER(type) = ?");
-            params.add(category.toLowerCase());
-        }
-        
-        if (minPrice != null) {
-            sql.append(" AND currentPrice >= ?");
-            params.add(minPrice);
-        }
-        
-        if (maxPrice != null) {
-            sql.append(" AND currentPrice <= ?");
-            params.add(maxPrice);
-        }
-        
-        try (Connection conn = DriverManager.getConnection(URL); 
-             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            for (int i = 0; i < params.size(); i++) {
-                Object param = params.get(i);
-                if (param instanceof String) {
-                    ps.setString(i + 1, (String) param);
-                } else if (param instanceof Double) {
-                    ps.setDouble(i + 1, (Double) param);
-                }
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Không còn dùng bảng legacy products, nếu Media không có thì trả về 0
         return 0;
     }
     
@@ -304,14 +208,14 @@ public class DatabaseLegacy {
     }
     
     // =======================
-    // Legacy Product CRUD Methods
+    // Các phương thức CRUD sản phẩm (Legacy)
     // =======================
     
     public static long addProduct(Product product) {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
             try {
-                // Get manager user_id
+                // Lấy user_id của tài khoản manager
                 int managerUserId = 1;
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SELECT user_id FROM Users WHERE username = 'manager' LIMIT 1")) {
@@ -320,7 +224,7 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // Parse dimension
+                // Phân tích chuỗi kích thước (dimension)
                 Double width = null, height = null, length = null;
                 if (product.getDimension() != null && !product.getDimension().isEmpty()) {
                     String[] parts = product.getDimension().replaceAll("[^0-9xX.]", "").split("[xX]");
@@ -332,7 +236,7 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // Insert into Media
+                // Thêm bản ghi vào bảng Media
                 String sql = "INSERT INTO Media (category, barcode, title, description, price, value, quantity, weight, width, height, length, condition, image_url, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 long mediaId;
                 try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -360,13 +264,13 @@ public class DatabaseLegacy {
                     try (ResultSet rs = ps.getGeneratedKeys()) {
                         if (rs.next()) {
                             mediaId = rs.getLong(1);
-                            // Update imagePath with actual ID
+                            // Cập nhật lại imagePath theo ID thật sự
                             if (product.getImagePath() == null || product.getImagePath().isEmpty()) {
                                 String newImagePath = ImageUtils.getProductImagePathAlways(mediaId);
                                 updateMediaImagePath(conn, mediaId, newImagePath);
                             }
                             
-                            // Insert into type-specific table
+                            // Thêm bản ghi chi tiết vào bảng tương ứng với từng loại sản phẩm
                             insertProductTypeDetails(conn, mediaId, product);
                             
                             conn.commit();
@@ -389,7 +293,7 @@ public class DatabaseLegacy {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
             try {
-                // Get manager user_id
+                // Lấy user_id của tài khoản manager
                 int managerUserId = 1;
                 try (Statement st = conn.createStatement();
                      ResultSet rs = st.executeQuery("SELECT user_id FROM Users WHERE username = 'manager' LIMIT 1")) {
@@ -398,7 +302,7 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // Parse dimension
+                // Phân tích chuỗi kích thước (dimension)
                 Double width = null, height = null, length = null;
                 if (product.getDimension() != null && !product.getDimension().isEmpty()) {
                     String[] parts = product.getDimension().replaceAll("[^0-9xX.]", "").split("[xX]");
@@ -410,7 +314,7 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // Update Media
+                // Cập nhật bản ghi trong bảng Media
                 String sql = "UPDATE Media SET category=?, barcode=?, title=?, description=?, price=?, value=?, quantity=?, weight=?, width=?, height=?, length=?, condition=?, status=?, image_url=?, updated_by=?, updated_at=CURRENT_TIMESTAMP WHERE media_id=?";
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setString(1, product.getType() != null ? product.getType().toLowerCase() : null);
@@ -457,11 +361,11 @@ public class DatabaseLegacy {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
             try {
-                // Check stock first
+                // Kiểm tra tồn kho trước
                 int stock = getStock(productId);
                 
                 if (stock > 0) {
-                    // If stock > 0, only deactivate the product
+                    // Nếu còn tồn kho (> 0) thì chỉ hủy kích hoạt sản phẩm (deactivate)
                     if (updateProductStatus(productId, "deactivated")) {
                         conn.commit();
                         return true;
@@ -471,8 +375,8 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // If stock = 0, proceed with deletion
-                // Delete from type-specific tables first
+                // Nếu tồn kho = 0 thì tiến hành xóa hoàn toàn
+                // Xóa trước ở các bảng chi tiết theo loại sản phẩm
                 String[] typeTables = {"Book", "Newspaper", "CD", "DVD"};
                 for (String table : typeTables) {
                     try (PreparedStatement ps = conn.prepareStatement("DELETE FROM " + table + " WHERE media_id = ?")) {
@@ -481,7 +385,7 @@ public class DatabaseLegacy {
                     }
                 }
                 
-                // Delete from Media
+                // Sau đó xóa trong bảng Media
                 String sql = "DELETE FROM Media WHERE media_id=?";
                 try (PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setLong(1, productId);
@@ -518,7 +422,7 @@ public class DatabaseLegacy {
     }
     
     public static int getStock(long productId) {
-        // Try Media first
+        // Thử lấy tồn kho từ bảng Media trước
         String q = "SELECT quantity FROM Media WHERE media_id = ?";
         try (Connection conn = DriverManager.getConnection(URL); 
              PreparedStatement ps = conn.prepareStatement(q)) {
@@ -528,20 +432,12 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Fallback to products
-        q = "SELECT stock FROM products WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(URL); 
-             PreparedStatement ps = conn.prepareStatement(q)) {
-            ps.setLong(1, productId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("stock");
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Không còn dùng bảng legacy products, nếu Media không có thì coi như hết hàng
         return 0;
     }
     
     public static boolean reduceStock(long productId, int amount) {
-        // Try Media first
+        // Thử trừ tồn kho trên bảng Media trước
         int current = getStock(productId);
         if (current < amount) return false;
         
@@ -554,20 +450,12 @@ public class DatabaseLegacy {
             if (affected > 0) return true;
         } catch (SQLException e) {}
         
-        // Fallback to products
-        u = "UPDATE products SET stock = stock - ? WHERE id = ?";
-        try (Connection conn = DriverManager.getConnection(URL); 
-             PreparedStatement ps = conn.prepareStatement(u)) {
-            ps.setInt(1, amount);
-            ps.setLong(2, productId);
-            int affected = ps.executeUpdate();
-            return affected > 0;
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Không còn dùng bảng legacy products, nếu không trừ được trên Media thì trả về false
         return false;
     }
     
     public static int countProducts() {
-        // Try Media first, fallback to products
+        // Thử đếm số sản phẩm trong bảng Media trước, nếu không có thì dự phòng sang bảng products
         try (Connection conn = DriverManager.getConnection(URL); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Media")) {
@@ -577,17 +465,12 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Fallback to products
-        try (Connection conn = DriverManager.getConnection(URL); 
-             Statement st = conn.createStatement(); 
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM products")) {
-            if (rs.next()) return rs.getInt(1);
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Không còn dùng bảng legacy products, nếu Media không có thì trả về 0
         return 0;
     }
     
     public static Product getProductById(long productId) {
-        // Try Media first (without status filter to allow editing deactivated products)
+        // Thử lấy sản phẩm từ bảng Media trước (không lọc theo trạng thái để có thể sửa cả sản phẩm đã bị deactivate)
         String sql = "SELECT m.media_id, m.category, m.barcode, m.title, m.description, m.price, m.value, m.quantity, m.weight, m.width, m.height, m.length, m.condition, m.status, m.image_url, m.created_by, m.updated_by, m.created_at, m.updated_at " +
                      "FROM Media m WHERE m.media_id = ?";
         try (Connection conn = DriverManager.getConnection(URL); 
@@ -600,12 +483,8 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Fallback to products
-        List<Product> products = queryProducts("SELECT id,type,title,originalValue,currentPrice,weight,dimension,description,extra,barcode,imagePath FROM products WHERE id=?", 
-                            stmt -> {
-                                stmt.setLong(1, productId);
-                            });
-        return products.isEmpty() ? null : products.get(0);
+        // Không còn dùng bảng legacy products, nếu không tìm thấy thì trả về null
+        return null;
     }
     
     // =======================
@@ -643,14 +522,14 @@ public class DatabaseLegacy {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
             try {
-                // Delete all existing tracks for this CD
+                // Xóa toàn bộ track cũ của CD này
                 String deleteSql = "DELETE FROM Track WHERE media_id = ?";
                 try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
                     ps.setLong(1, mediaId);
                     ps.executeUpdate();
                 }
                 
-                // Insert new tracks
+                // Thêm lại danh sách track mới
                 if (tracks != null && !tracks.isEmpty()) {
                     String insertSql = "INSERT INTO Track (media_id, title, length, track_number) VALUES (?, ?, ?, ?)";
                     try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
@@ -701,7 +580,7 @@ public class DatabaseLegacy {
                     long orderId = rs.getLong(1);
                     order.setOrderId(orderId);
                     
-                    // Query back to get the created_at timestamp from database
+                    // Truy vấn lại để lấy thời gian created_at từ cơ sở dữ liệu
                     String selectSql = "SELECT created_at FROM Orders WHERE order_id = ?";
                     try (PreparedStatement selectPs = conn.prepareStatement(selectSql)) {
                         selectPs.setLong(1, orderId);
@@ -881,105 +760,6 @@ public class DatabaseLegacy {
         return false;
     }
     
-    private static List<Product> queryProducts(String sql, PreparedStatementSetter setter) {
-        List<Product> list = new ArrayList<>();
-        try (Connection conn = DriverManager.getConnection(URL); 
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            setter.set(ps);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    long id = rs.getLong("id");
-                    String type = rs.getString("type");
-                    String title = rs.getString("title");
-                    double original = rs.getDouble("originalValue");
-                    double current = rs.getDouble("currentPrice");
-                    double weight = rs.getDouble("weight");
-                    String dimension = rs.getString("dimension");
-                    String desc = rs.getString("description");
-                    String extra = rs.getString("extra");
-                    String barcode = rs.getString("barcode");
-                    String imagePath = rs.getString("imagePath");
-                    
-                    if (imagePath == null || imagePath.isEmpty()) {
-                        imagePath = ImageUtils.getProductImagePathAlways(id);
-                    }
-
-                    Map<String,String> m = parseExtra(extra);
-
-                    Product p = null;
-                    switch (type) {
-                        case "book": {
-                            Book b = new Book(id, title, original, current, weight, dimension, desc,
-                                    m.getOrDefault("author",""), m.getOrDefault("coverType",""), m.getOrDefault("publisher",""), m.getOrDefault("publicationDate",""));
-                            if (m.containsKey("numberOfPages")) try { b.setNumberOfPages(Integer.parseInt(m.get("numberOfPages"))); } catch (Exception ignored) {}
-                            b.setLanguage(m.getOrDefault("language", ""));
-                            b.setGenre(m.getOrDefault("genre",""));
-                            b.setBarcode(barcode);
-                            b.setImagePath(imagePath);
-                            p = b; break;
-                        }
-                        case "newspaper": {
-                            Newspaper n = new Newspaper(id, title, original, current, weight, dimension, desc,
-                                    m.getOrDefault("editorInChief",""), m.getOrDefault("publisher",""), m.getOrDefault("publicationDate",""));
-                            n.setIssueNumber(m.getOrDefault("issueNumber",""));
-                            n.setPublicationFrequency(m.getOrDefault("publicationFrequency",""));
-                            n.setIssn(m.getOrDefault("issn",""));
-                            n.setLanguage(m.getOrDefault("language",""));
-                            n.setSections(m.getOrDefault("sections",""));
-                            n.setBarcode(barcode);
-                            n.setImagePath(imagePath);
-                            p = n; break;
-                        }
-                        case "cd": {
-                            CD c = new CD(id, title, original, current, weight, dimension, desc,
-                                    m.getOrDefault("album",""), m.getOrDefault("artist",""), m.getOrDefault("recordLabel",""));
-                            c.setGenre(m.getOrDefault("genre",""));
-                            c.setReleaseDate(m.getOrDefault("releaseDate",""));
-                            if (m.containsKey("trackList")) c.setTrackList(Arrays.asList(m.get("trackList").split("\\|")));
-                            c.setBarcode(barcode);
-                            c.setImagePath(imagePath);
-                            p = c; break;
-                        }
-                        case "dvd": {
-                            DVD d = new DVD(id, title, original, current, weight, dimension, desc,
-                                    m.getOrDefault("discType",""), m.getOrDefault("director",""));
-                            d.setRuntime(m.getOrDefault("runtime",""));
-                            d.setStudio(m.getOrDefault("studio",""));
-                            d.setLanguage(m.getOrDefault("language",""));
-                            d.setSubtitles(m.getOrDefault("subtitles",""));
-                            d.setReleaseDate(m.getOrDefault("releaseDate",""));
-                            d.setGenre(m.getOrDefault("genre",""));
-                            d.setBarcode(barcode);
-                            d.setImagePath(imagePath);
-                            p = d; break;
-                        }
-                        default: {
-                            Product prod = new Product(id, title, original, current, weight, dimension, desc, barcode, imagePath);
-                            p = prod; break;
-                        }
-                    }
-                    list.add(p);
-                }
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
-        return list;
-    }
-    
-    private static Map<String,String> parseExtra(String extra) {
-        Map<String,String> m = new HashMap<>();
-        if (extra == null) return m;
-        String[] parts = extra.split(";;");
-        for (String p: parts) {
-            int idx = p.indexOf('=');
-            if (idx > 0) {
-                String k = p.substring(0, idx);
-                String v = p.substring(idx + 1);
-                m.put(k, v);
-            }
-        }
-        return m;
-    }
-    
     private static void insertProductTypeDetails(Connection conn, long mediaId, Product product) throws SQLException {
         if (product instanceof Book) {
             Book b = (Book) product;
@@ -1099,7 +879,7 @@ public class DatabaseLegacy {
             ps.setLong(1, mediaId);
             ps.setString(2, extra.getOrDefault("artist", null));
             ps.setString(3, extra.getOrDefault("recordLabel", null));
-            ps.setString(4, extra.getOrDefault("album", null)); // Using album as music_type
+            ps.setString(4, extra.getOrDefault("album", null)); // Sử dụng trường album làm music_type
             ps.setString(5, extra.getOrDefault("releaseDate", null));
             ps.setString(6, extra.getOrDefault("genre", null));
             ps.executeUpdate();
@@ -1114,7 +894,7 @@ public class DatabaseLegacy {
             ps.setString(3, extra.getOrDefault("director", null));
             String runtime = extra.get("runtime");
             if (runtime != null && !runtime.isEmpty()) {
-                // Try to extract number from "120min" or similar
+                // Cố gắng tách phần số từ chuỗi dạng "120min" hoặc tương tự
                 runtime = runtime.replaceAll("[^0-9]", "");
                 if (!runtime.isEmpty()) {
                     try {

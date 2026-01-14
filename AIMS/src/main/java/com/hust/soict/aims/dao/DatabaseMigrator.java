@@ -8,140 +8,18 @@ import java.util.Map;
 
 /**
  * Database Migrator
- * Responsible for migrating data from legacy products table to new Media schema
+ * Giữ lại để tham chiếu, nhưng lược bỏ logic migrate từ bảng legacy products
+ * Toàn bộ dữ liệu hiện tại sử dụng trực tiếp schema Media mới.
  */
 public class DatabaseMigrator {
     private static final String URL = BaseDAO.URL;
     
     /**
-     * Migrate data from legacy products table to new Media schema
+     * Hàm migrate hiện không còn thực hiện thao tác nào
+     * vì hệ thống đã chuyển hoàn toàn sang dùng bảng Media.
      */
     public static void migrate() {
-        try (Connection conn = DriverManager.getConnection(URL)) {
-            migrateProductsToMedia(conn);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-    
-    /**
-     * Migrate data from legacy products table to new Media schema
-     */
-    private static void migrateProductsToMedia(Connection conn) {
-        try {
-            // Check if Media table is empty and products table has data
-            try (Statement st = conn.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Media")) {
-                if (rs.next() && rs.getInt(1) > 0) {
-                    return; // Already migrated
-                }
-            }
-            
-            try (Statement st = conn.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM products")) {
-                if (!rs.next() || rs.getInt(1) == 0) {
-                    return; // No data to migrate
-                }
-            }
-            
-            // Get manager user_id for created_by
-            int managerUserId = 1;
-            try (Statement st = conn.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT user_id FROM Users WHERE username = 'manager' LIMIT 1")) {
-                if (rs.next()) {
-                    managerUserId = rs.getInt(1);
-                }
-            }
-            
-            // Migrate products to Media
-            String selectProducts = "SELECT id, type, title, originalValue, currentPrice, weight, dimension, description, extra, barcode, imagePath FROM products";
-            try (Statement st = conn.createStatement();
-                 ResultSet rs = st.executeQuery(selectProducts)) {
-                
-                conn.setAutoCommit(false);
-                while (rs.next()) {
-                    long oldId = rs.getLong("id");
-                    String type = rs.getString("type");
-                    String title = rs.getString("title");
-                    double originalValue = rs.getDouble("originalValue");
-                    double currentPrice = rs.getDouble("currentPrice");
-                    double weight = rs.getDouble("weight");
-                    String dimension = rs.getString("dimension");
-                    String description = rs.getString("description");
-                    String extra = rs.getString("extra");
-                    String barcode = rs.getString("barcode");
-                    String imagePath = rs.getString("imagePath");
-                    
-                    // Parse dimension to height, width, length if possible
-                    Double height = null, width = null, length = null;
-                    if (dimension != null && !dimension.isEmpty()) {
-                        // Try to parse "15x20cm" or similar
-                        String[] parts = dimension.replaceAll("[^0-9xX.]", "").split("[xX]");
-                        if (parts.length >= 2) {
-                            try {
-                                width = Double.parseDouble(parts[0]);
-                                height = Double.parseDouble(parts[1]);
-                            } catch (NumberFormatException ignored) {}
-                        }
-                    }
-                    
-                    // Insert into Media
-                    String insertMedia = "INSERT INTO Media (category, barcode, title, description, price, value, quantity, weight, height, width, length, image_url, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    try (PreparedStatement ps = conn.prepareStatement(insertMedia, Statement.RETURN_GENERATED_KEYS)) {
-                        // Normalize category to lowercase for case-insensitive consistency
-                        ps.setString(1, type != null ? type.toLowerCase() : null);
-                        ps.setString(2, barcode != null ? barcode : "LEGACY" + oldId);
-                        ps.setString(3, title);
-                        ps.setString(4, description);
-                        ps.setDouble(5, currentPrice);
-                        ps.setDouble(6, originalValue);
-                        ps.setInt(7, 10); // Default quantity
-                        ps.setDouble(8, weight);
-                        if (height != null) ps.setDouble(9, height);
-                        else ps.setNull(9, Types.REAL);
-                        if (width != null) ps.setDouble(10, width);
-                        else ps.setNull(10, Types.REAL);
-                        if (length != null) ps.setDouble(11, length);
-                        else ps.setNull(11, Types.REAL);
-                        ps.setString(12, imagePath != null ? imagePath : ImageUtils.getProductImagePathAlways(oldId));
-                        ps.setInt(13, managerUserId);
-                        ps.setInt(14, managerUserId);
-                        ps.executeUpdate();
-                        
-                        try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
-                            if (generatedKeys.next()) {
-                                long newMediaId = generatedKeys.getLong(1);
-                                
-                                // Insert into type-specific tables
-                                Map<String, String> extraMap = parseExtra(extra);
-                                switch (type) {
-                                    case "book":
-                                        insertBook(conn, newMediaId, extraMap);
-                                        break;
-                                    case "newspaper":
-                                        insertNewspaper(conn, newMediaId, extraMap);
-                                        break;
-                                    case "cd":
-                                        insertCD(conn, newMediaId, extraMap);
-                                        break;
-                                    case "dvd":
-                                        insertDVD(conn, newMediaId, extraMap);
-                                        break;
-                                }
-                            }
-                        }
-                    }
-                }
-                conn.commit();
-            }
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException ex) {
-                ex.printStackTrace();
-            }
-            e.printStackTrace();
-        }
+        // No-op: không còn migrate từ bảng products
     }
     
     private static void insertBook(Connection conn, long mediaId, Map<String, String> extra) throws SQLException {
@@ -229,22 +107,5 @@ public class DatabaseMigrator {
         }
     }
     
-    /**
-     * Parse extra field from legacy products table
-     */
-    private static Map<String, String> parseExtra(String extra) {
-        Map<String, String> m = new HashMap<>();
-        if (extra == null) return m;
-        String[] parts = extra.split(";;");
-        for (String p: parts) {
-            int idx = p.indexOf('=');
-            if (idx > 0) {
-                String k = p.substring(0, idx);
-                String v = p.substring(idx + 1);
-                m.put(k, v);
-            }
-        }
-        return m;
-    }
 }
 
