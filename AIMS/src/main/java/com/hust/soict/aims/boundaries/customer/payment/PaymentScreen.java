@@ -6,7 +6,8 @@ import java.net.URI;
 import java.net.URL;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-
+import com.hust.soict.aims.subsystems.payment.PaymentProviderRegistry;
+import com.hust.soict.aims.subsystems.payment.PaymentRegistryFactory;
 import com.hust.soict.aims.boundaries.BaseScreenHandler;
 import com.hust.soict.aims.components.RoundedButton;
 import com.hust.soict.aims.controls.CartController;
@@ -52,11 +53,15 @@ public class PaymentScreen extends BaseScreenHandler {
                          PlaceOrderController placeOrderController) {
         super("Payment", parent, false);
         this.invoice = invoice;
-        this.payOrderController = new PayOrderController(placeOrderController);
+
+        PaymentProviderRegistry registry = PaymentRegistryFactory.createDefaultRegistry();
+        this.payOrderController = new PayOrderController(placeOrderController, registry);
+
         this.orderService = new OrderService();
         this.paymentContextService = PaymentContextService.getInstance();
         initializeScreen();
     }
+
 
     // ================= PAYPAL POLLING =================
 

@@ -2,81 +2,40 @@ package com.hust.soict.aims.controls;
 
 import com.hust.soict.aims.entities.Invoice;
 import com.hust.soict.aims.entities.Order;
-import com.hust.soict.aims.entities.enums.PaymentMethod;
 import com.hust.soict.aims.entities.PaymentResult;
-import com.hust.soict.aims.entities.QRCode;
+import com.hust.soict.aims.entities.enums.PaymentMethod;
 import com.hust.soict.aims.exceptions.PaymentException;
-import com.hust.soict.aims.subsystems.IQRCodePayment;
-import com.hust.soict.aims.subsystems.paypal.PayPalSubsystem;
-import com.hust.soict.aims.subsystems.vietqr.VietQRSubsystem;
+import com.hust.soict.aims.subsystems.payment.PaymentInitiator;
+import com.hust.soict.aims.subsystems.payment.PaymentProviderRegistry;
 
 /**
  * Controller xử lý nghiệp vụ thanh toán đơn hàng
  * - Tạo payment (PayPal / VietQR)
  * - Xác nhận hoàn tất thanh toán
+ *
+ * SOLID:
+ * - OCP: thêm phương thức mới không sửa logic (chỉ register strategy)
+ * - DIP: phụ thuộc abstraction (registry + initiator)
  */
 public class PayOrderController {
 
     private final PlaceOrderController placeOrderController;
+    private final PaymentProviderRegistry registry;
 
-    // Subsystems
-    private final IQRCodePayment vietQRSubsystem;
-    private final PayPalSubsystem payPalSubsystem;
-
-    public PayOrderController(PlaceOrderController placeOrderController) {
+    public PayOrderController(PlaceOrderController placeOrderController, PaymentProviderRegistry registry) {
         this.placeOrderController = placeOrderController;
-        this.vietQRSubsystem = new VietQRSubsystem();
-        this.payPalSubsystem = new PayPalSubsystem();
+        this.registry = registry;
     }
 
     /**
      * Tạo payment cho đơn hàng
      */
-    public PaymentResult createPayment(Invoice invoice, PaymentMethod method)
-            throws PaymentException {
-
-        Order order = invoice.getOrder();
-
-        // Amount VNĐ (làm tròn)
-        int amount = (int) Math.round(invoice.getTotalAmount());
-        String content = "AIMS_ORDER_" + (order != null ? order.getOrderId() : "UNKNOWN");
-
-        switch (method) {
-            case VIETQR:
-                return createVietQRPayment(amount, content);
-
-            case PAYPAL:
-                return createPayPalPayment(invoice);
-
-            default:
-                throw new PaymentException("Unsupported payment method: " + method);
+    public PaymentResult createPayment(Invoice invoice, PaymentMethod method) throws PaymentException {
+        PaymentInitiator initiator = registry.getInitiator(method);
+        if (initiator == null) {
+            throw new PaymentException("Unsupported payment method: " + method);
         }
-    }
-
-    /**
-     * Tạo thanh toán VietQR
-     */
-    private PaymentResult createVietQRPayment(int amount, String content)
-            throws PaymentException {
-
-        String qrUrl = vietQRSubsystem.generatePayUrl(amount, content);
-
-        QRCode qrCode = new QRCode();
-        qrCode.setQrCode(qrUrl);
-        qrCode.setQrLink(qrUrl);
-        qrCode.setBankCode("ICB");
-        qrCode.setBankName("VietinBank");
-        qrCode.setBankAccount("109875430178");
-
-        return PaymentResult.vietQR(qrCode);
-    }
-
-    /**
-     * Tạo thanh toán PayPal
-     */
-    private PaymentResult createPayPalPayment(Invoice invoice) throws PaymentException {
-        String payUrl = payPalSubsystem.generatePayUrlForInvoice(invoice);
-        return PaymentResult.paypal(payUrl);
+        return initiator.initiate(invoice);
     }
 
     /**

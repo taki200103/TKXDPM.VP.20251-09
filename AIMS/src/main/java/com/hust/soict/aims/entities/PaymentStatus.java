@@ -1,58 +1,41 @@
 package com.hust.soict.aims.entities;
 
-/**
- * Entity representing payment status check result
- */
+import com.hust.soict.aims.entities.enums.PaymentState;
+
 public class PaymentStatus {
-    private String status;    // "PENDING", "COMPLETED", "FAILED", "CANCELLED"
-    private String message;   // Additional message about payment status
-    
-    public PaymentStatus() {}
-    
-    public PaymentStatus(String status, String message) {
-        this.status = status;
+    private PaymentState state;
+    private String message;
+
+    public PaymentStatus() {
+        this.state = PaymentState.UNKNOWN;
+    }
+
+    public PaymentStatus(PaymentState state, String message) {
+        this.state = state != null ? state : PaymentState.UNKNOWN;
         this.message = message;
     }
-    
-    // Getters and Setters
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    
+
+    public PaymentState getState() { return state; }
+    public void setState(PaymentState state) { this.state = state != null ? state : PaymentState.UNKNOWN; }
+
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
-    
-    // Helper methods
-    public boolean isCompleted() {
-        return "COMPLETED".equalsIgnoreCase(status);
-    }
-    
-    public boolean isPending() {
-        return "PENDING".equalsIgnoreCase(status);
-    }
-    
-    public boolean isFailed() {
-        return "FAILED".equalsIgnoreCase(status);
-    }
-    
-    public boolean isCancelled() {
-        return "CANCELLED".equalsIgnoreCase(status);
-    }
-    
-    // Factory methods
-    public static PaymentStatus parseResponseString(String response) {
-        // Parse response from VietQR API
-        // For now, simple implementation
-        if (response == null || response.isEmpty()) {
-            return new PaymentStatus("UNKNOWN", "Empty response");
+
+    public boolean isCompleted() { return state == PaymentState.COMPLETED; }
+    public boolean isPending() { return state == PaymentState.PENDING; }
+    public boolean isFailed() { return state == PaymentState.FAILED; }
+    public boolean isCancelled() { return state == PaymentState.CANCELLED; }
+
+    public static PaymentStatus fromProviderResponse(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return new PaymentStatus(PaymentState.UNKNOWN, "Empty response");
         }
-        
-        // TODO: Parse actual JSON response from VietQR
-        return new PaymentStatus("PENDING", "Payment is being processed");
+        // Nếu bạn parse JSON VietQR/PayPal thì parse ở đây
+        return new PaymentStatus(PaymentState.PENDING, "Payment is being processed");
     }
-    
+
     @Override
     public String toString() {
-        return String.format("PaymentStatus{status='%s', message='%s'}", status, message);
+        return "PaymentStatus{state=" + state + ", message='" + message + "'}";
     }
 }
-

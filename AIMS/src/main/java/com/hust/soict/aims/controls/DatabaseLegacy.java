@@ -767,7 +767,7 @@ public class DatabaseLegacy {
         try (Connection conn = DriverManager.getConnection(URL);
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setDouble(1, paymentTransaction.getAmount());
-            ps.setString(2, paymentTransaction.getMethodType());
+            ps.setString(2, paymentTransaction.getMethodTypeAsString());
             ps.setString(3, paymentTransaction.getTransactionNo());
             ps.setString(4, paymentTransaction.getTransactionContent());
             ps.setTimestamp(5, paymentTransaction.getPayDate());
