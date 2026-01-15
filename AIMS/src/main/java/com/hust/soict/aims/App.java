@@ -6,7 +6,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import com.hust.soict.aims.utils.ServiceProvider;
 import com.hust.soict.aims.controls.PayByCreditCardController;
 import com.hust.soict.aims.controls.ProductController;
-import com.hust.soict.aims.controls.CartController;
 import com.hust.soict.aims.boundaries.customer.homepage.Homepage;
 import com.hust.soict.aims.boundaries.ScreenNavigator;
 

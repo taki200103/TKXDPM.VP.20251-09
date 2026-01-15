@@ -236,7 +236,7 @@ public class DatabaseInitializer {
         try (PreparedStatement ps = conn.prepareStatement(
             "INSERT OR IGNORE INTO Users (username, password_hash, email, full_name, status) VALUES (?, ?, ?, ?, ?)")) {
             ps.setString(1, "huyhoang");
-            ps.setString(2, PasswordHasher.hashPassword("Test@123"));
+            ps.setString(2, PasswordHasher.hashPassword("123456"));
             ps.setString(3, "huyhoang2001037a1@gmail.com");
             ps.setString(4, "Huy Hoang");
             ps.setString(5, "active");

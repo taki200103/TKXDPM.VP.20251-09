@@ -8,12 +8,12 @@ import java.sql.*;
 import java.util.*;
 
 /**
- * Các phương thức cơ sở dữ liệu dạng cũ (Legacy)
+ * Các phương thức truy cập cơ sở dữ liệu
  *
- * Lớp này chứa các phương thức tĩnh được giữ lại từ lớp Database gốc.
- * Các phương thức này được giữ lại để đảm bảo khả năng tương thích với mã nguồn cũ.
+ * Lớp này chứa các phương thức tĩnh để thao tác với cơ sở dữ liệu.
+ * Các phương thức này cung cấp các chức năng CRUD cho sản phẩm, đơn hàng, và các thực thể khác.
  *
- * Mã mới nên sử dụng các DAO interface thay thế.
+ * Lưu ý: Mã mới nên sử dụng các DAO interface thay thế để có kiến trúc tốt hơn.
  *
  * @deprecated Hãy dùng các DAO interface thay cho lớp này
  */
@@ -111,7 +111,7 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Không còn dùng bảng legacy products, nếu Media không có thì trả về 0
+        // nếu Media không có thì trả về 0
         return 0;
     }
     
@@ -289,6 +289,7 @@ public class DatabaseLegacy {
         return -1;
     }
     
+    @SuppressWarnings("unused")
     public static boolean updateProduct(Product product) {
         try (Connection conn = DriverManager.getConnection(URL)) {
             conn.setAutoCommit(false);
@@ -340,7 +341,7 @@ public class DatabaseLegacy {
                     
                     int affected = ps.executeUpdate();
                     if (affected > 0) {
-                        // Update type-specific table
+                        // Cập nhật bảng chi tiết theo loại sản phẩm
                         updateProductTypeDetails(conn, product.getId(), product);
                         conn.commit();
                         return true;
@@ -455,7 +456,7 @@ public class DatabaseLegacy {
     }
     
     public static int countProducts() {
-        // Thử đếm số sản phẩm trong bảng Media trước, nếu không có thì dự phòng sang bảng products
+        // Đếm số sản phẩm trong bảng Media
         try (Connection conn = DriverManager.getConnection(URL); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Media")) {
@@ -465,7 +466,7 @@ public class DatabaseLegacy {
             }
         } catch (SQLException e) {}
         
-        // Không còn dùng bảng legacy products, nếu Media không có thì trả về 0
+        // Nếu Media không có dữ liệu thì trả về 0
         return 0;
     }
     
@@ -488,7 +489,7 @@ public class DatabaseLegacy {
     }
     
     // =======================
-    // Track Operations
+    // Các thao tác với Track (bài hát trong CD)
     // =======================
     
     public static List<Track> loadTracks(long mediaId) {
@@ -565,7 +566,7 @@ public class DatabaseLegacy {
     }
     
     // =======================
-    // Order Operations
+    // Các thao tác với đơn hàng (Order)
     // =======================
     
     public static long insertOrder(Order order) throws SQLException {
@@ -690,7 +691,7 @@ public class DatabaseLegacy {
     }
     
     // =======================
-    // Helper Methods
+    // Các phương thức hỗ trợ (Helper Methods)
     // =======================
     
     private static List<Product> searchMediaProducts(String searchTerm, String category, 
@@ -810,7 +811,7 @@ public class DatabaseLegacy {
     }
     
     private static void updateProductTypeDetails(Connection conn, long mediaId, Product product) throws SQLException {
-        // Delete old type-specific records
+        // Xóa các bản ghi chi tiết cũ theo loại sản phẩm
         String[] typeTables = {"Book", "Newspaper", "CD", "DVD"};
         for (String table : typeTables) {
             try (PreparedStatement ps = conn.prepareStatement("DELETE FROM " + table + " WHERE media_id = ?")) {
@@ -819,7 +820,7 @@ public class DatabaseLegacy {
             }
         }
         
-        // Insert new type-specific details
+        // Thêm lại các chi tiết mới theo loại sản phẩm
         insertProductTypeDetails(conn, mediaId, product);
     }
     

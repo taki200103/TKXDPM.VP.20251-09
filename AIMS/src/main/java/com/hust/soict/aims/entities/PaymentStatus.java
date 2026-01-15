@@ -47,6 +47,7 @@ public class PaymentStatus {
         }
         
         // TODO: Parse actual JSON response from VietQR
+        
         return new PaymentStatus("PENDING", "Payment is being processed");
     }
     

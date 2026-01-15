@@ -8,19 +8,11 @@ import java.util.Map;
 
 /**
  * Database Migrator
- * Giữ lại để tham chiếu, nhưng lược bỏ logic migrate từ bảng legacy products
- * Toàn bộ dữ liệu hiện tại sử dụng trực tiếp schema Media mới.
+ * Chèn dữ liệu vào database 
  */
 public class DatabaseMigrator {
+
     private static final String URL = BaseDAO.URL;
-    
-    /**
-     * Hàm migrate hiện không còn thực hiện thao tác nào
-     * vì hệ thống đã chuyển hoàn toàn sang dùng bảng Media.
-     */
-    public static void migrate() {
-        // No-op: không còn migrate từ bảng products
-    }
     
     private static void insertBook(Connection conn, long mediaId, Map<String, String> extra) throws SQLException {
         String sql = "INSERT INTO Book (media_id, author, cover_type, publisher, publish_date, number_of_page, language, book_category, genre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -43,22 +35,6 @@ public class DatabaseMigrator {
             ps.setString(7, extra.getOrDefault("language", null));
             ps.setString(8, extra.getOrDefault("bookCategory", null));
             ps.setString(9, extra.getOrDefault("genre", null));
-            ps.executeUpdate();
-        }
-    }
-    
-    private static void insertNewspaper(Connection conn, long mediaId, Map<String, String> extra) throws SQLException {
-        String sql = "INSERT INTO Newspaper (media_id, editor_in_chief, publisher, publish_date, issue_number, publication_frequency, issn, language, sections) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, mediaId);
-            ps.setString(2, extra.getOrDefault("editorInChief", null));
-            ps.setString(3, extra.getOrDefault("publisher", null));
-            ps.setString(4, extra.getOrDefault("publicationDate", null));
-            ps.setString(5, extra.getOrDefault("issueNumber", null));
-            ps.setString(6, extra.getOrDefault("publicationFrequency", null));
-            ps.setString(7, extra.getOrDefault("issn", null));
-            ps.setString(8, extra.getOrDefault("language", null));
-            ps.setString(9, extra.getOrDefault("sections", null));
             ps.executeUpdate();
         }
     }

@@ -1,7 +1,6 @@
 package com.hust.soict.aims.controls;
 
 import com.hust.soict.aims.dao.DatabaseInitializer;
-import com.hust.soict.aims.dao.DatabaseMigrator;
 import com.hust.soict.aims.dao.DatabaseSeeder;
 
 import java.sql.SQLException;
@@ -34,12 +33,8 @@ public class Database {
     public static void initDatabase() {
         try {
             // Step 1: Initialize database schema and default data
-            DatabaseInitializer.initialize();
-            
-            // Step 2: Migrate data from legacy products table if needed
-            DatabaseMigrator.migrate();
-            
-            // Step 3: Seed sample data if Media table is empty
+            DatabaseInitializer.initialize();   
+            // Step 2: Seed sample data if Media table is empty
             DatabaseSeeder.seed();
         } catch (SQLException e) {
             e.printStackTrace();
