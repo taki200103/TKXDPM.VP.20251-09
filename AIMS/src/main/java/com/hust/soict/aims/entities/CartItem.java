@@ -1,5 +1,7 @@
 package com.hust.soict.aims.entities;
 
+// gio hang tam thoithoi
+
 public class CartItem {
     private Product product;
     private int quantity;
